@@ -10,6 +10,7 @@ import { LoginPage } from "./pages/login";
 import { RegisterPage } from "./pages/register";
 import { EmailConfirmation } from "./pages/emailConfirmation";
 import { NotFoundPage } from "./pages/not-found";
+import { AboutPage } from "./pages/about";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { YMaps } from "@pbe/react-yandex-maps";
 import { ResetPasswordPage } from "./pages/reset-password";
@@ -31,6 +32,7 @@ export default function App() {
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/email-confirmation" element={<EmailConfirmation />} />
                         <Route path="/" element={<PrivateHome />} />
+                        <Route path="/about" element={<AboutPage />} />
                         <Route path="/events/:id" element={<EventDetailPage />} />
                         <Route path="/organizers/:id" element={<OrganizerPage />} />
                         <Route path="/profile" element={<ProfilePage />} />

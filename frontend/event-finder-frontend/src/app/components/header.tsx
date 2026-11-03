@@ -50,7 +50,7 @@ export function Header({ isAuthenticated = false, userName = "Пользоват
               Организаторы
             </Link>*/}
             <Link
-              to="/"
+              to="/about"
               className="transition-colors"
               style={{ transition: 'var(--hover-button-transition)' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-hover-text-color)')}
@@ -145,7 +145,7 @@ export function Header({ isAuthenticated = false, userName = "Пользоват
 {/*            <Link to="/organizers/org1" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
               Организаторы
             </Link>*/}
-            <Link to="/" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
+            <Link to="/about" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
               О нас
             </Link>
             {!isAuthenticated ? (
