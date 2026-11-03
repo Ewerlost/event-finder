@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: event_finder_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: event_finder_db
+      POSTGRES_USER: event_finder_user
+      POSTGRES_PASSWORD: event_finder_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U event_finder_user -d event_finder_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: event_finder_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://event_finder_user:event_finder_password@postgres:5432/event_finder_db
+      JWT_KEY: dev_only_change_me_please_use_a_long_secret_key
+      JWT_ISSUER: EventFinder.Api
+      JWT_AUDIENCE: EventFinder.Client
+      FRONTEND_URL: http://localhost:5173/#
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,https://alexthunder2005.github.io
+      MAILERSEND_API_TOKEN: ${MAILERSEND_API_TOKEN:-}
+      MAILERSEND_FROM_EMAIL: ${MAILERSEND_FROM_EMAIL:-}
+      MAILERSEND_FROM_NAME: ${MAILERSEND_FROM_NAME:-EventFinderTeam}
+    ports:
+      - "8080:8080"

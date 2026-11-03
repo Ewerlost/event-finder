@@ -1,0 +1,9 @@
+.venv/
+tests/tmp-wwwroot/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.env
+wwwroot/images/events/*
+!wwwroot/images/events/.gitkeep
+*.pyc
