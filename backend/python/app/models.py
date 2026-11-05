@@ -161,3 +161,10 @@ class OrganizerReview(Base):
     rating: Mapped[int] = mapped_column(Integer)
     comment: Mapped[str] = mapped_column(Text, default="")
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserInterest(Base):
+    __tablename__ = "user_interests"
+
+    profile_id: Mapped[str] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
+    category: Mapped[str] = mapped_column(String(100), primary_key=True)

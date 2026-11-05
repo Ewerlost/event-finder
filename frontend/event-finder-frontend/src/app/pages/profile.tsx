@@ -107,6 +107,8 @@ export function ProfilePage() {
     totalSpots: 0,
   });
   const [eventFormSaving, setEventFormSaving] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [savingInterests, setSavingInterests] = useState(false);
 
   const ymaps = useYMaps(["geocode"]);
 
@@ -262,6 +264,13 @@ export function ProfilePage() {
       });
       if (userId) {
         await Promise.all([loadUserReviews(), loadUserEvents()]);
+      }
+      const recommendationResponse = await fetch(`${SERVER_URL}/api/v1.0/recommendations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (recommendationResponse.ok) {
+        const recommendation = await recommendationResponse.json();
+        setInterests(recommendation.interests || []);
       }
     } catch (err: any) {
       console.error("Failed to load profile:", err);
@@ -843,6 +852,56 @@ export function ProfilePage() {
                               placeholder="Расскажите о себе..."
                               disabled={!isEditing}
                           />
+                        </div>
+                        <div>
+                          <Label className="mb-2 block">Интересы</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {EVENT_CATEGORIES.map((item) => {
+                              const selected = interests.includes(item);
+                              return (
+                                  <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => setInterests((current) => selected ? current.filter((value) => value !== item) : [...current, item])}
+                                      className="rounded-full border px-3 py-1 text-sm cursor-pointer"
+                                      style={selected ? { backgroundColor: "var(--primary-color)", borderColor: "var(--primary-color)", color: "white" } : undefined}
+                                  >
+                                    {item}
+                                  </button>
+                              );
+                            })}
+                          </div>
+                          <Button
+                              className="mt-3 cursor-pointer"
+                              style={{ backgroundColor: "var(--primary-color)" }}
+                              disabled={savingInterests || !token}
+                              onClick={async () => {
+                                if (!token) return;
+                                setSavingInterests(true);
+                                try {
+                                  const response = await fetch(`${SERVER_URL}/api/v1.0/recommendations/interests`, {
+                                    method: "PUT",
+                                    headers: {
+                                      Authorization: `Bearer ${token}`,
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({ interests }),
+                                  });
+                                  if (!response.ok) {
+                                    showError("Не удалось сохранить интересы");
+                                    return;
+                                  }
+                                  const data = await response.json();
+                                  setInterests(data.interests || []);
+                                  showSuccess("Интересы сохранены");
+                                } finally {
+                                  setSavingInterests(false);
+                                }
+                              }}
+                          >
+                            {savingInterests ? "Сохранение..." : "Сохранить интересы"}
+                          </Button>
+                          <p className="text-xs text-muted-foreground mt-2">По ним собирается блок «Для вас» на главной.</p>
                         </div>
                         <div>
                           <Label htmlFor="location" className="mb-2 block">Локация</Label>

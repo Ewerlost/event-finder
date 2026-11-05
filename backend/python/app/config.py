@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     mailersend_from_email: str = ""
     mailersend_from_name: str = "EventFinderTeam"
     upload_dir: str = "wwwroot"
+    recommendation_model_url: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

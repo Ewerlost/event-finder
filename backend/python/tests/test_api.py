@@ -344,6 +344,30 @@ def test_author_deletes_own_reviews(client: TestClient):
     assert deleted_organizer.status_code == 204
 
 
+def test_recommendations_prefer_selected_interests(client: TestClient):
+    user = _register(client, "recs@example.com")
+    other = _register(client, "recs-org@example.com")
+    headers = _headers(user)
+    saved = client.put(
+        "/api/v1.0/recommendations/interests",
+        headers=headers,
+        json={"interests": ["Музыка", "несуществующее"]},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["interests"] == ["Музыка"]
+
+    music = client.post("/api/v1.0/events", json=_event(title="Джаз", category="Музыка"), headers=_headers(other))
+    sport = client.post("/api/v1.0/events", json=_event(title="Пробежка", category="Спорт"), headers=_headers(other))
+    assert music.status_code == 201
+    assert sport.status_code == 201
+
+    response = client.get("/api/v1.0/recommendations", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "rules"
+    assert body["events"][0]["category"] == "Музыка"
+
+
 def test_event_chat_keeps_history_after_leave(client: TestClient):
     owner = _register(client, "chat-owner@example.com")
     guest = _register(client, "chat-guest@example.com")
