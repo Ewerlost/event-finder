@@ -489,40 +489,36 @@ export function EventDetailPage() {
                       </div>
                     </div>
 
-                    {!isOrganizer && (
-                        <>
-                          {!isRegistered ? (
-                              <Button
-                                  className="w-full cursor-pointer hover:opacity-90"
-                                  size="lg"
-                                  style={{ backgroundColor: 'var(--primary-color)' }}
-                                  onClick={handleRegister}
-                                  disabled={registering || isFullyBooked}
-                              >
-                                {registering ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : isFullyBooked ? (
-                                    "Нет мест"
-                                ) : (
-                                    "Записаться"
-                                )}
-                              </Button>
+                    {!isRegistered ? (
+                        <Button
+                            className="w-full cursor-pointer hover:opacity-90"
+                            size="lg"
+                            style={{ backgroundColor: 'var(--primary-color)' }}
+                            onClick={handleRegister}
+                            disabled={registering || isFullyBooked}
+                        >
+                          {registering ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : isFullyBooked ? (
+                              "Нет мест"
                           ) : (
-                              <Button
-                                  className="w-full cursor-pointer hover:bg-destructive/90"
-                                  size="lg"
-                                  variant="destructive"
-                                  onClick={handleCancelRegistration}
-                                  disabled={cancelling}
-                              >
-                                {cancelling ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                    "Отменить запись"
-                                )}
-                              </Button>
+                              "Записаться"
                           )}
-                        </>
+                        </Button>
+                    ) : (
+                        <Button
+                            className="w-full cursor-pointer hover:bg-destructive/90"
+                            size="lg"
+                            variant="destructive"
+                            onClick={handleCancelRegistration}
+                            disabled={cancelling}
+                        >
+                          {cancelling ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                              "Отменить запись"
+                          )}
+                        </Button>
                     )}
                   </div>
 

@@ -1,4 +1,4 @@
-import { getUserById, updateUser, deleteUser } from "../api/profileApi";
+import { getUserById, updateUser, deleteUser, uploadAvatar } from "../api/profileApi";
 import {ProfileEntity} from "../entities/profile.types";
 
 
@@ -41,6 +41,19 @@ class ProfileService {
             return await updateUser(this.userId, userData, token);
         } catch (error) {
             console.error("Error updating profile:", error);
+            throw error;
+        }
+    }
+
+    async uploadAvatar(token: string, file: File): Promise<ProfileEntity> {
+        if (!this.userId) {
+            throw new Error("User ID not set");
+        }
+
+        try {
+            return await uploadAvatar(this.userId, file, token);
+        } catch (error) {
+            console.error("Error uploading avatar:", error);
             throw error;
         }
     }

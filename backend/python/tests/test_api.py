@@ -271,6 +271,35 @@ def test_events_reviews_and_profile(client: TestClient):
     assert gone.status_code == 404
 
 
+def test_upload_profile_avatar(client: TestClient):
+    token = _register(client, "avatar@example.com")
+    user_id = _profile_id(client, token)
+
+    uploaded = client.post(
+        f"/api/v1.0/users/{user_id}/avatar",
+        headers=_headers(token),
+        files={"file": ("face.png", b"\x89PNG\r\n\x1a\nfake", "image/png")},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()["avatarUrl"].endswith(f"/api/v1.0/users/{user_id}/avatar") or "/avatar?v=" in uploaded.json()["avatarUrl"]
+
+    image = client.get(f"/api/v1.0/users/{user_id}/avatar")
+    assert image.status_code == 200
+    assert image.headers["content-type"].startswith("image/png")
+
+    kept = client.put(
+        f"/api/v1.0/users/{user_id}",
+        headers=_headers(token),
+        json={
+            "email": "avatar@example.com",
+            "userName": "avatar",
+            "avatarUrl": None,
+        },
+    )
+    assert kept.status_code == 200
+    assert "/avatar" in kept.json()["avatarUrl"]
+
+
 def _register(client: TestClient, email: str) -> str:
     from tests.conftest import _register_and_verify
 

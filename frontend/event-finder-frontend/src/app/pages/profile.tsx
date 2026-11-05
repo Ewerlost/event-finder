@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { EVENT_CATEGORIES } from '../constants/defaultConstants';
 import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
 import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
@@ -64,6 +65,8 @@ export function ProfilePage() {
   const [deletePassword, setDeletePassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileEntity | null>(null);
   const [userReviews, setUserReviews] = useState<ReviewEntity[]>([]);
@@ -316,6 +319,25 @@ export function ProfilePage() {
       });
     }
     setIsEditing(false);
+    setAvatarFile(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(null);
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/bmp"];
+    if (!allowed.includes(file.type)) {
+      showError("Можно загрузить JPG, PNG, GIF или BMP");
+      e.target.value = "";
+      return;
+    }
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   };
 
   const handleSaveProfile = async () => {
@@ -323,16 +345,20 @@ export function ProfilePage() {
     setSaving(true);
     setError(null);
     try {
+      let currentProfile = profile;
+      if (avatarFile) {
+        currentProfile = await profileService.uploadAvatar(token, avatarFile);
+      }
       const updatedProfile = await profileService.updateProfile(token, {
-        id: profile.id,
+        id: currentProfile.id,
         userName: formData.userName,
         alias: formData.alias,
-        email: profile.email,
+        email: currentProfile.email,
         phone: formData.phone,
         biography: formData.biography,
         coordinates: formData.coordinates,
         address: formData.address,
-        avatarUrl: profile.avatarUrl,
+        avatarUrl: currentProfile.avatarUrl,
       });
       setProfile(updatedProfile);
       setFormData({
@@ -343,6 +369,11 @@ export function ProfilePage() {
         coordinates: formData.coordinates || updatedProfile.coordinates || null,
         address: formData.address || updatedProfile.address || null,
       });
+      setAvatarFile(null);
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
       setIsEditing(false);
       showSuccess("Профиль успешно обновлен!");
     } catch (err: any) {
@@ -708,6 +739,25 @@ export function ProfilePage() {
                       <div className="space-y-6">
                         <div>
                           <h2 className="mb-4">Профиль</h2>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-20 w-20">
+                            <AvatarImage src={avatarPreview || profile.avatarUrl} alt={profile.userName || "Аватар"} />
+                            <AvatarFallback>{(profile.userName || profile.email || "П")[0]}</AvatarFallback>
+                          </Avatar>
+                          {isEditing && (
+                              <div className="flex-1">
+                                <Label htmlFor="avatar">Аватар</Label>
+                                <Input
+                                    id="avatar"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/gif,image/bmp"
+                                    onChange={handleAvatarChange}
+                                    className="mt-2 cursor-pointer"
+                                />
+                                <p className="text-xs text-muted-foreground mt-2">JPG, PNG, GIF или BMP. Сохранится вместе с профилем.</p>
+                              </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>

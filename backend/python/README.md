@@ -6,6 +6,16 @@ Python-бэкенд Event Finder. Контракт совпадает с фро�
 
 ## Локально
 
+Из корня репозитория всё поднимается одной командой:
+
+```powershell
+.\start.ps1
+```
+
+Откроется `http://127.0.0.1:5173/event-finder/`. Остановка: `Ctrl+C`. Нужны уже установленные зависимости (`pip install` в `backend\python` и `npm install` во фронте) и запущенный Docker Desktop.
+
+По отдельности:
+
 ```powershell
 cd backend\python
 python -m venv .venv

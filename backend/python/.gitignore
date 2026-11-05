@@ -6,4 +6,6 @@ __pycache__/
 .env
 wwwroot/images/events/*
 !wwwroot/images/events/.gitkeep
+wwwroot/images/avatars/*
+!wwwroot/images/avatars/.gitkeep
 *.pyc

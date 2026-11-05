@@ -82,6 +82,28 @@ export async function updateUser(userId: string, userData: ProfileEntity, token:
     return await response.json();
 }
 
+export async function uploadAvatar(userId: string, file: File, token: string): Promise<ProfileEntity> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${SERVER_URL}/api/v1.0/users/${userId}/avatar`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = new Error(`${response.status}`);
+        // @ts-ignore
+        error.status = response.status;
+        throw error;
+    }
+
+    return await response.json();
+}
+
 // DELETE /api/users/{id} - Удалить пользователя
 export async function deleteUser(userId: string, token: string, password: string): Promise<void> {
     const response = await fetch(`${SERVER_URL}/api/v1.0/users/${userId}`, {
