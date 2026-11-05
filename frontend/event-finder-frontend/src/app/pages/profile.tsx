@@ -285,6 +285,17 @@ export function ProfilePage() {
     }
   };
 
+  const handleDeleteOwnReview = async (reviewId: string) => {
+    if (!token) return;
+    try {
+      await reviewsService.deleteReview(reviewId, token);
+      setUserReviews((current) => current.filter((review) => review.id !== reviewId));
+      showSuccess("Отзыв удалён");
+    } catch {
+      showError("Не удалось удалить отзыв");
+    }
+  };
+
   const loadUserEvents = async () => {
     if (!token) return;
     setEventsLoading(true);
@@ -996,7 +1007,11 @@ export function ProfilePage() {
                         ) : userReviews.length > 0 ? (
                             <div className="space-y-4">
                               {userReviews.map((review) => (
-                                  <ReviewItem key={review.id} review={review} />
+                                  <ReviewItem
+                                      key={review.id}
+                                      review={review}
+                                      onDelete={review.id ? () => handleDeleteOwnReview(review.id!) : undefined}
+                                  />
                               ))}
                             </div>
                         ) : (

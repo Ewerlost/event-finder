@@ -3,11 +3,6 @@ import {CreateReviewData, Review, UpdateReviewData} from "../dtos/review";
 import {mockReviews} from "../data/mock-data";
 import {ReviewEntity} from "../entities/review.types";
 
-
-function delay(ms: number = 500): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 // GET /api/reviews - Получить список всех отзывов
 export async function getAllReviews(token: string): Promise<ReviewEntity[]> {
 
@@ -157,11 +152,6 @@ export async function updateReview(reviewId: string, reviewData: ReviewEntity, t
 
 // DELETE /api/reviews/{id} - Удалить отзыв
 export async function deleteReview(reviewId: string, token: string): Promise<void> {
-
-    // Временно используем мок-данные
-    await delay();
-    console.log(`Review ${reviewId} deleted (mock)`);
-
     const response = await fetch(`${SERVER_URL}/api/v1.0/reviews/${reviewId}`, {
         method: "DELETE",
         headers: {

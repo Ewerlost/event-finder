@@ -246,6 +246,17 @@ export function EventDetailPage() {
     }
   };
 
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!token) return;
+    try {
+      await reviewsService.deleteReview(reviewId, token);
+      setReviews((current) => current.filter((review) => review.id !== reviewId));
+      showSuccess("Отзыв удалён");
+    } catch {
+      showError("Не удалось удалить отзыв");
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('ru-RU', {
@@ -442,6 +453,7 @@ export function EventDetailPage() {
                             key={review.id}
                             review={review}
                             onClick={() => navigate(`/events/${review.eventId}`)}
+                            onDelete={review.userId === userId && review.id ? () => handleDeleteReview(review.id!) : undefined}
                         />
                     ))}
                     {reviews.length === 0 && (

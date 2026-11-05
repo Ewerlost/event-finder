@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -87,3 +87,19 @@ def create_organizer_review(
         raise HTTPException(status_code=409) from exc
     db.refresh(review)
     return review_to_dict(review)
+
+
+@router.delete("/{review_id}", status_code=204)
+def delete_organizer_review(
+    review_id: str,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    review = db.get(OrganizerReview, parse_id(review_id))
+    if review is None:
+        raise HTTPException(status_code=404)
+    if review.user_id != current.profile_id:
+        raise HTTPException(status_code=403)
+    db.delete(review)
+    db.commit()
+    return Response(status_code=204)

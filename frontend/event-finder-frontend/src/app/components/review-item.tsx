@@ -7,9 +7,10 @@ import { mediaUrl } from "../helpers/mediaUrl";
 interface ReviewItemProps {
   review: ReviewEntity;
   onClick?: () => void;
+  onDelete?: () => void;
 }
 
-export function ReviewItem({ review, onClick }: ReviewItemProps) {
+export function ReviewItem({ review, onClick, onDelete }: ReviewItemProps) {
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
         <Star
@@ -49,9 +50,23 @@ export function ReviewItem({ review, onClick }: ReviewItemProps) {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <h4>{review.userName}</h4>
-              <span className="text-sm text-muted-foreground">
-              {formatDate(review.date)}
-            </span>
+              <div className="flex items-center gap-3">
+                {onDelete && (
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete();
+                        }}
+                        className="text-sm text-red-500 hover:underline cursor-pointer"
+                    >
+                      Удалить
+                    </button>
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {formatDate(review.date)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1 mb-2">
               {renderStars(review.rating)}

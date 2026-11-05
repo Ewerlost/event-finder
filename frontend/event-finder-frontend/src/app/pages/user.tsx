@@ -65,6 +65,20 @@ export function UserPage() {
     const isOrganizer = events.length > 0;
     const isSelf = profile?.id === userId;
 
+    const deleteOrganizerReview = async (reviewId: string) => {
+        if (!token) return;
+        const response = await fetch(`${SERVER_URL}/api/v1.0/organizer-reviews/${reviewId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+            showError("Не удалось удалить отзыв");
+            return;
+        }
+        setReviews((current) => current.filter((review) => review.id !== reviewId));
+        showSuccess("Отзыв удалён");
+    };
+
     const submitReview = async () => {
         if (!token || !id || !comment.trim()) return;
         setSaving(true);
@@ -155,6 +169,7 @@ export function UserPage() {
                                                     comment: review.comment,
                                                     date: review.date,
                                                 }}
+                                                onDelete={review.userId === userId ? () => deleteOrganizerReview(review.id) : undefined}
                                             />
                                         ))}
                                         {reviews.length === 0 && (

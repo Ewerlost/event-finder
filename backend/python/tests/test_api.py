@@ -300,6 +300,50 @@ def test_upload_profile_avatar(client: TestClient):
     assert "/avatar" in kept.json()["avatarUrl"]
 
 
+def test_author_deletes_own_reviews(client: TestClient):
+    owner = _register(client, "review-owner@example.com")
+    guest = _register(client, "review-guest@example.com")
+    owner_id = _profile_id(client, owner)
+    created = client.post("/api/v1.0/events", json=_event(), headers=_headers(owner))
+    event_id = created.json()["id"]
+
+    review = client.post(
+        "/api/v1.0/reviews",
+        headers=_headers(guest),
+        json={
+            "eventId": event_id,
+            "userId": _profile_id(client, guest),
+            "userName": "Гость",
+            "rating": 5,
+            "comment": "Хорошо",
+            "date": "2026-11-05T10:00:00.000Z",
+        },
+    )
+    review_id = review.json()["id"]
+    forbidden = client.delete(f"/api/v1.0/reviews/{review_id}", headers=_headers(owner))
+    assert forbidden.status_code == 403
+    deleted = client.delete(f"/api/v1.0/reviews/{review_id}", headers=_headers(guest))
+    assert deleted.status_code == 204
+
+    organizer_review = client.post(
+        "/api/v1.0/organizer-reviews",
+        headers=_headers(guest),
+        json={"organizerId": owner_id, "rating": 4, "comment": "Надёжный организатор"},
+    )
+    assert organizer_review.status_code == 201
+    organizer_review_id = organizer_review.json()["id"]
+    forbidden_organizer = client.delete(
+        f"/api/v1.0/organizer-reviews/{organizer_review_id}",
+        headers=_headers(owner),
+    )
+    assert forbidden_organizer.status_code == 403
+    deleted_organizer = client.delete(
+        f"/api/v1.0/organizer-reviews/{organizer_review_id}",
+        headers=_headers(guest),
+    )
+    assert deleted_organizer.status_code == 204
+
+
 def test_event_chat_keeps_history_after_leave(client: TestClient):
     owner = _register(client, "chat-owner@example.com")
     guest = _register(client, "chat-guest@example.com")
