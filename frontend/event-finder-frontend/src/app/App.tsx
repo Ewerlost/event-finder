@@ -12,6 +12,7 @@ import { EmailConfirmation } from "./pages/emailConfirmation";
 import { NotFoundPage } from "./pages/not-found";
 import { AboutPage } from "./pages/about";
 import { EventChatPage } from "./pages/event-chat";
+import { EventsMapPage } from "./pages/events-map";
 import { UserPage } from "./pages/user";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { YMaps } from "@pbe/react-yandex-maps";
@@ -35,6 +36,7 @@ export default function App() {
                         <Route path="/email-confirmation" element={<EmailConfirmation />} />
                         <Route path="/" element={<PrivateHome />} />
                         <Route path="/about" element={<AboutPage />} />
+                        <Route path="/map" element={<EventsMapPage />} />
                         <Route path="/events/:id" element={<EventDetailPage />} />
                         <Route path="/events/:id/chat" element={<EventChatPage />} />
                         <Route path="/users/:id" element={<UserPage />} />

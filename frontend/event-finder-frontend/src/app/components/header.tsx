@@ -40,6 +40,15 @@ export function Header({ isAuthenticated = false, userName = "Пользоват
             >
               Мероприятия
             </Link>
+            <Link
+              to="/map"
+              className="transition-colors"
+              style={{ transition: 'var(--hover-button-transition)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-hover-text-color)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '')}
+            >
+              Карта
+            </Link>
 {/*            <Link
               to="/organizers/org1"
               className="transition-colors"
@@ -141,6 +150,9 @@ export function Header({ isAuthenticated = false, userName = "Пользоват
           <nav className="md:hidden py-4 space-y-3">
             <Link to="/" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
               Мероприятия
+            </Link>
+            <Link to="/map" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
+              Карта
             </Link>
 {/*            <Link to="/organizers/org1" className="block py-2" onClick={() => setMobileMenuOpen(false)}>
               Организаторы
