@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   User,
   Calendar,
@@ -57,6 +58,7 @@ import { Badge } from "../components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { EVENT_CATEGORIES } from '../constants/defaultConstants';
 import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
+import { SERVER_URL } from "../config/serverConfig";
 import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
 
 export function ProfilePage() {
@@ -89,6 +91,7 @@ export function ProfilePage() {
   // Состояния для вкладки «Организатор»
   const [organizerEvents, setOrganizerEvents] = useState<EventEntity[]>([]);
   const [organizerEventsLoading, setOrganizerEventsLoading] = useState(false);
+  const [chats, setChats] = useState<{ eventId: string; title: string; date: string; access: string }[]>([]);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventEntity | null>(null);
   const [eventFormData, setEventFormData] = useState<Partial<EventEntity>>({
@@ -122,6 +125,14 @@ export function ProfilePage() {
   useEffect(() => {
     if (activeTab === "organizer" && token && userId) {
       loadOrganizerEvents();
+    }
+    if (activeTab === "chats" && token) {
+      fetch(`${SERVER_URL}/api/v1.0/chats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+          .then((response) => response.ok ? response.json() : [])
+          .then(setChats)
+          .catch(() => setChats([]));
     }
   }, [activeTab, token, userId]);
 
@@ -639,6 +650,7 @@ export function ProfilePage() {
                   <TabsTrigger value="organizer" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Организатор</TabsTrigger>
                   <TabsTrigger value="events" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Мероприятия</TabsTrigger>
                   <TabsTrigger value="reviews" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Отзывы</TabsTrigger>
+                  <TabsTrigger value="chats" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Чаты</TabsTrigger>
                   {/*<TabsTrigger value="settings" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Настройки</TabsTrigger>*/}
                 </TabsList>
               </Tabs>
@@ -680,6 +692,14 @@ export function ProfilePage() {
                         style={activeTab === "reviews" ? { backgroundColor: 'var(--primary-color)' } : {}}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" /> Мои отзывы
+                    </Button>
+                    <Button
+                        variant={activeTab === "chats" ? "default" : "ghost"}
+                        className="w-full justify-start cursor-pointer hover:bg-muted/50"
+                        onClick={() => setActiveTab("chats")}
+                        style={activeTab === "chats" ? { backgroundColor: 'var(--primary-color)' } : {}}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" /> Чаты
                     </Button>
                     {/*<Button
                         variant={activeTab === "settings" ? "default" : "ghost"}
@@ -938,6 +958,27 @@ export function ProfilePage() {
                               Вы еще не записались ни на одно мероприятие
                             </div>
                         )}
+                      </div>
+                  )}
+
+                  {/* ===== Вкладка Чаты ===== */}
+                  {activeTab === "chats" && (
+                      <div className="space-y-4">
+                        <h2 className="mb-4">Чаты</h2>
+                        {chats.length === 0 ? (
+                            <p className="text-muted-foreground">Чатов пока нет. Они появляются у организатора и участников мероприятия.</p>
+                        ) : chats.map((chat) => (
+                            <Link
+                                key={chat.eventId}
+                                to={`/events/${chat.eventId}/chat`}
+                                className="block border rounded-lg p-4 hover:bg-muted/40"
+                            >
+                              <div className="font-medium">{chat.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {chat.date}{chat.access === "history" ? " · только история до выхода" : ""}
+                              </div>
+                            </Link>
+                        ))}
                       </div>
                   )}
 

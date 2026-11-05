@@ -1,6 +1,8 @@
 import { Star } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ReviewEntity } from "../entities/review.types";
+import { mediaUrl } from "../helpers/mediaUrl";
 
 interface ReviewItemProps {
   review: ReviewEntity;
@@ -34,10 +36,16 @@ export function ReviewItem({ review, onClick }: ReviewItemProps) {
           onClick={onClick}
       >
         <div className="flex items-start gap-3">
-          <Avatar>
-            <AvatarImage src={review.userAvatar} alt={review.userName} />
-            <AvatarFallback>{review.userName?.[0] || "U"}</AvatarFallback>
-          </Avatar>
+          <Link
+              to={review.userId ? `/users/${review.userId}` : "#"}
+              onClick={(event) => event.stopPropagation()}
+              className="shrink-0"
+          >
+            <Avatar>
+              <AvatarImage src={mediaUrl(review.userAvatar)} alt={review.userName} />
+              <AvatarFallback>{review.userName?.[0] || "U"}</AvatarFallback>
+            </Avatar>
+          </Link>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <h4>{review.userName}</h4>

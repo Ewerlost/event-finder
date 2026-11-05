@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.chat_access import grant_chat_access, revoke_chat_access
 from app.config import get_settings
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
@@ -170,6 +171,7 @@ def register_for_event(
 
     registration = Registration(user_id=current.profile_id, event_id=event.id, registration_date=utcnow())
     event.registrations.append(registration)
+    grant_chat_access(db, event.id, current.profile_id)
     if event.available_spots is not None:
         event.available_spots -= 1
     try:
@@ -195,6 +197,7 @@ def cancel_registration(
     if registration is None:
         raise HTTPException(status_code=404)
     db.delete(registration)
+    revoke_chat_access(db, event.id, current.profile_id)
     if event.available_spots is not None:
         event.available_spots += 1
     db.commit()

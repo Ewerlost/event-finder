@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, Users, Loader2, Send, X } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Loader2, Send, X, MessageCircle } from "lucide-react";
 import { Header } from "../components/header";
 import { Footer } from "../components/footer";
 import { Button } from "../components/ui/button";
@@ -36,6 +36,7 @@ export function EventDetailPage() {
   const [registering, setRegistering] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [chatAccess, setChatAccess] = useState<"full" | "history" | "none">("none");
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
@@ -84,8 +85,18 @@ export function EventDetailPage() {
       const organizerEventsData = await eventsService.getEventsByOrganizer(eventData.organizerId, token);
       setOrganizerEvents(organizerEventsData.filter(e => e.id !== eventData.id).slice(0, 3));
 
-      const organizerReviews = await reviewsService.getReviewsByOrganizer(eventData.organizerId, token);
-      setReviews(organizerReviews.slice(0, 3));
+      const eventReviews = await reviewsService.getEventReviews(id, token);
+      setReviews(eventReviews);
+
+      const chatResponse = await fetch(`${SERVER_URL}/api/v1.0/events/${id}/chat`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (chatResponse.ok) {
+        const chatState = await chatResponse.json();
+        setChatAccess(chatState.access);
+      } else {
+        setChatAccess("none");
+      }
     } catch (err: any) {
       console.error("Failed to load event:", err);
       if (err.status === 404) {
@@ -348,7 +359,7 @@ export function EventDetailPage() {
 
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h2>Отзывы об организаторе</h2>
+                    <h2>Отзывы о мероприятии</h2>
                     {!isOrganizer && userId && !showReviewForm && (
                         <Button
                             variant="outline"
@@ -393,7 +404,7 @@ export function EventDetailPage() {
                                 id="comment"
                                 value={reviewComment}
                                 onChange={(e) => setReviewComment(e.target.value)}
-                                placeholder="Поделитесь впечатлениями об организаторе..."
+                                placeholder="Поделитесь впечатлениями о мероприятии..."
                                 className="mt-2"
                                 rows={4}
                             />
@@ -435,7 +446,7 @@ export function EventDetailPage() {
                     ))}
                     {reviews.length === 0 && (
                         <p className="text-center text-muted-foreground py-8">
-                          Пока нет отзывов об этом организаторе
+                          Пока нет отзывов об этом мероприятии
                         </p>
                     )}
                   </div>
@@ -518,6 +529,14 @@ export function EventDetailPage() {
                           ) : (
                               "Отменить запись"
                           )}
+                        </Button>
+                    )}
+                    {chatAccess !== "none" && event.id && (
+                        <Button asChild variant="outline" className="w-full cursor-pointer">
+                          <Link to={`/events/${event.id}/chat`}>
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            Чат мероприятия
+                          </Link>
                         </Button>
                     )}
                   </div>

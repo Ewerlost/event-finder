@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Boolean, Float
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Boolean, Float, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -126,3 +126,38 @@ class Review(Base):
 
     event: Mapped[Event] = relationship(back_populates="reviews")
     user: Mapped[Profile] = relationship(back_populates="reviews")
+
+
+class ChatMember(Base):
+    __tablename__ = "chat_members"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
+    event_id: Mapped[str] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    event_id: Mapped[str] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[str | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    author_name: Mapped[str] = mapped_column(String(200), default="")
+    author_is_organizer: Mapped[bool] = mapped_column(Boolean, default=False)
+    body: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class OrganizerReview(Base):
+    __tablename__ = "organizer_reviews"
+    __table_args__ = (UniqueConstraint("organizer_id", "user_id", name="uq_organizer_review_author"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organizer_id: Mapped[str] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    user_name: Mapped[str] = mapped_column(String(200), default="")
+    user_avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    rating: Mapped[int] = mapped_column(Integer)
+    comment: Mapped[str] = mapped_column(Text, default="")
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

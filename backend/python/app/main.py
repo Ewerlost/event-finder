@@ -7,8 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.models import Account, EmailToken, Event, Profile, Registration, Review  # noqa: F401
-from app.routers import auth, events, reviews, users
+from app.models import Account, ChatMember, ChatMessage, EmailToken, Event, OrganizerReview, Profile, Registration, Review  # noqa: F401
+from app.routers import auth, chat, events, organizer_reviews, reviews, users
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,8 @@ def create_app() -> FastAPI:
     app.include_router(events.router)
     app.include_router(users.router)
     app.include_router(reviews.router)
+    app.include_router(chat.router)
+    app.include_router(organizer_reviews.router)
 
     @app.get("/health")
     def health() -> dict:

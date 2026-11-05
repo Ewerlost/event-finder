@@ -92,6 +92,25 @@ export async function getOrganizerReviews(organizerId: string, token: string): P
     return await response.json();
 }
 
+export async function getEventReviews(eventId: string, token: string): Promise<ReviewEntity[]> {
+    const response = await fetch(`${SERVER_URL}/api/v1.0/reviews/event/${eventId}`, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        const error = new Error(`${response.status}`);
+        // @ts-ignore
+        error.status = response.status;
+        throw error;
+    }
+
+    return await response.json();
+}
+
 // POST /api/reviews - Создать отзыв
 export async function createReview(reviewData: ReviewEntity, token: string): Promise<ReviewEntity> {
 

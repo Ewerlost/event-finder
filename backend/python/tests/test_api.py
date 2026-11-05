@@ -300,6 +300,47 @@ def test_upload_profile_avatar(client: TestClient):
     assert "/avatar" in kept.json()["avatarUrl"]
 
 
+def test_event_chat_keeps_history_after_leave(client: TestClient):
+    owner = _register(client, "chat-owner@example.com")
+    guest = _register(client, "chat-guest@example.com")
+    created = client.post("/api/v1.0/events", json=_event(), headers=_headers(owner))
+    event_id = created.json()["id"]
+
+    assert client.get(f"/api/v1.0/events/{event_id}/chat", headers=_headers(guest)).status_code == 403
+
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={owner}") as owner_socket:
+        assert owner_socket.receive_json()["type"] == "history"
+        owner_socket.send_json({"text": "Добро пожаловать"})
+        welcome = owner_socket.receive_json()
+        assert welcome["message"]["authorIsOrganizer"] is True
+
+    assert client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest)).status_code == 200
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={guest}") as guest_socket:
+        history = guest_socket.receive_json()
+        assert any(item["text"] == "Добро пожаловать" for item in history["messages"])
+        guest_socket.send_json({"text": "Я буду"})
+        assert guest_socket.receive_json()["message"]["text"] == "Я буду"
+
+    assert client.delete(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest)).status_code == 200
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={owner}") as owner_socket:
+        owner_socket.receive_json()
+        owner_socket.send_json({"text": "После выхода"})
+        assert owner_socket.receive_json()["message"]["text"] == "После выхода"
+
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={guest}") as guest_socket:
+        history = guest_socket.receive_json()
+        texts = [item["text"] for item in history["messages"]]
+        assert history["access"] == "history"
+        assert "Я буду" in texts
+        assert "После выхода" not in texts
+        guest_socket.send_json({"text": "ещё раз"})
+        assert guest_socket.receive_json()["type"] == "error"
+
+    chats = client.get("/api/v1.0/chats", headers=_headers(guest))
+    assert chats.status_code == 200
+    assert chats.json()[0]["access"] == "history"
+
+
 def _register(client: TestClient, email: str) -> str:
     from tests.conftest import _register_and_verify
 

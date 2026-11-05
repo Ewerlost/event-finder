@@ -4,7 +4,7 @@ import {
     getUserReviews,
     createReview,
     updateReview,
-    deleteReview, getOrganizerReviews
+    deleteReview, getOrganizerReviews, getEventReviews
 } from "../api/reviewsApi";
 
 import { ReviewEntity } from "../entities/review.types";
@@ -41,6 +41,15 @@ class ReviewsService {
             return await getUserReviews(userId, token);
         } catch (error) {
             console.error("Error fetching user reviews:", error);
+            throw error;
+        }
+    }
+
+    async getEventReviews(eventId: string, token: string): Promise<ReviewEntity[]> {
+        try {
+            return await getEventReviews(eventId, token);
+        } catch (error) {
+            console.error("Error fetching event reviews:", error);
             throw error;
         }
     }

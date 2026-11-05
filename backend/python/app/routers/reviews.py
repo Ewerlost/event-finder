@@ -66,6 +66,19 @@ def list_by_organizer(
     return [review_to_dict(review) for review in reviews]
 
 
+@router.get("/event/{event_id}")
+def list_by_event(
+    event_id: str,
+    _: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    event_id = parse_id(event_id)
+    reviews = db.scalars(
+        select(Review).where(Review.event_id == event_id).order_by(Review.date.desc())
+    ).all()
+    return [review_to_dict(review) for review in reviews]
+
+
 @router.get("/{review_id}")
 def get_review(
     review_id: str,

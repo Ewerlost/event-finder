@@ -1,5 +1,6 @@
 fastapi==0.115.6
 uvicorn>=0.34.0,<0.35
+websockets>=13,<16
 sqlalchemy>=2.0.44,<2.1
 psycopg[binary]>=3.2.3,<4
 pydantic-settings==2.6.1
