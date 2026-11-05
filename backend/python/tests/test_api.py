@@ -368,6 +368,38 @@ def test_recommendations_prefer_selected_interests(client: TestClient):
     assert body["events"][0]["category"] == "Музыка"
 
 
+def test_waitlist_promotes_the_latest_person(client: TestClient):
+    owner = _register(client, "wait-owner@example.com")
+    first = _register(client, "wait-first@example.com")
+    second = _register(client, "wait-second@example.com")
+    third = _register(client, "wait-third@example.com")
+    created = client.post(
+        "/api/v1.0/events",
+        json=_event(availableSpots=1, totalSpots=1),
+        headers=_headers(owner),
+    )
+    event_id = created.json()["id"]
+
+    assert client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(first)).json()["amIMember"] is True
+    second_join = client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(second))
+    assert second_join.json()["amIWaitlisted"] is True
+    assert second_join.json()["availableSpots"] == 0
+    third_join = client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(third))
+    assert third_join.json()["waitlistPosition"] == 1
+
+    cancelled = client.delete(f"/api/v1.0/events/{event_id}/register", headers=_headers(first))
+    assert cancelled.json()["availableSpots"] == 0
+
+    promoted = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(third))
+    assert promoted.json()["amIMember"] is True
+    still_waiting = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(second))
+    assert still_waiting.json()["amIWaitlisted"] is True
+
+    notes = client.get("/api/v1.0/notifications", headers=_headers(third))
+    assert notes.status_code == 200
+    assert "Освободилось место" in notes.json()[0]["text"]
+
+
 def test_event_chat_keeps_history_after_leave(client: TestClient):
     owner = _register(client, "chat-owner@example.com")
     guest = _register(client, "chat-guest@example.com")

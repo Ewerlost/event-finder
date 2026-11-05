@@ -16,5 +16,7 @@ export interface EventEntity {
     availableSpots?: number; // доступное количество мест
     totalSpots?: number;     // всего мест
     amIMember: boolean;      //записан ли я
+    amIWaitlisted?: boolean;
+    waitlistPosition?: number | null;
 }
 

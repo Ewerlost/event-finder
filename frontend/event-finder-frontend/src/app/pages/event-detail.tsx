@@ -36,6 +36,7 @@ export function EventDetailPage() {
   const [registering, setRegistering] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isWaitlisted, setIsWaitlisted] = useState(false);
   const [chatAccess, setChatAccess] = useState<"full" | "history" | "none">("none");
 
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -76,6 +77,7 @@ export function EventDetailPage() {
     try {
       const eventData = await eventsService.getEventById(id, token);
       setEvent(eventData);
+      setIsWaitlisted(!!eventData.amIWaitlisted);
 
       if (userId) {
         const userEvents = await eventsService.getUserRegisteredEvents(token);
@@ -117,13 +119,9 @@ export function EventDetailPage() {
     // Сохраняем текущее состояние для возможного отката
     const oldEvent = event;
     const oldIsRegistered = isRegistered;
+    const oldIsWaitlisted = isWaitlisted;
 
-    // Оптимистичное обновление (мгновенно меняем UI)
-    if (event) {
-      setEvent({
-        ...event,
-        availableSpots: (event.availableSpots || 0)
-      });
+    if (event && (event.availableSpots || 0) > 0) {
       setIsRegistered(true);
     }
 
@@ -142,14 +140,19 @@ export function EventDetailPage() {
           updatedEvent.participants?.includes(userId);
 
       setIsRegistered(isUserRegistered);
-
-      showSuccess("Вы успешно записались на мероприятие!");
+      setIsWaitlisted(!!updatedEvent.amIWaitlisted);
+      if (updatedEvent.amIWaitlisted) {
+        showInfo("Свободных мест нет. Вы в листе ожидания");
+      } else {
+        showSuccess("Вы успешно записались на мероприятие!");
+      }
     } catch (err: any) {
       // Откатываем оптимистичное обновление при ошибке
       if (oldEvent) {
         setEvent(oldEvent);
       }
       setIsRegistered(oldIsRegistered);
+      setIsWaitlisted(oldIsWaitlisted);
 
       console.error("Failed to register for event:", err);
       if (err.status === 400) {
@@ -172,6 +175,7 @@ export function EventDetailPage() {
     // Сохраняем текущее состояние для возможного отката
     const oldEvent = event;
     const oldIsRegistered = isRegistered;
+    const oldIsWaitlisted = isWaitlisted;
 
     // Оптимистичное обновление (мгновенно меняем UI)
     if (event) {
@@ -195,14 +199,16 @@ export function EventDetailPage() {
           updatedEvent.isRegistered === true;
 
       setIsRegistered(isUserRegistered);
+      setIsWaitlisted(!!updatedEvent.amIWaitlisted);
 
-      showSuccess("Вы успешно отменили запись на мероприятие");
+      showSuccess(oldIsWaitlisted ? "Вы вышли из листа ожидания" : "Вы успешно отменили запись на мероприятие");
     } catch (err: any) {
       // Откатываем оптимистичное обновление при ошибке
       if (oldEvent) {
         setEvent(oldEvent);
       }
       setIsRegistered(oldIsRegistered);
+      setIsWaitlisted(oldIsWaitlisted);
 
       console.error("Failed to cancel registration:", err);
       showError("Не удалось отменить запись");
@@ -512,18 +518,35 @@ export function EventDetailPage() {
                       </div>
                     </div>
 
-                    {!isRegistered ? (
+                    {isWaitlisted ? (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            {event.waitlistPosition === 1
+                                ? "Вы следующий: при освобождении места вас запишут автоматически."
+                                : `Вы в листе ожидания. Перед вами ${Math.max((event.waitlistPosition || 1) - 1, 0)}.`}
+                          </p>
+                          <Button
+                              className="w-full cursor-pointer"
+                              size="lg"
+                              variant="outline"
+                              onClick={handleCancelRegistration}
+                              disabled={cancelling}
+                          >
+                            {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Покинуть лист ожидания"}
+                          </Button>
+                        </div>
+                    ) : !isRegistered ? (
                         <Button
                             className="w-full cursor-pointer hover:opacity-90"
                             size="lg"
                             style={{ backgroundColor: 'var(--primary-color)' }}
                             onClick={handleRegister}
-                            disabled={registering || isFullyBooked}
+                            disabled={registering}
                         >
                           {registering ? (
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           ) : isFullyBooked ? (
-                              "Нет мест"
+                              "В лист ожидания"
                           ) : (
                               "Записаться"
                           )}

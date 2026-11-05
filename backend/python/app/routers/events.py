@@ -11,8 +11,9 @@ from app.chat_access import grant_chat_access, revoke_chat_access
 from app.config import get_settings
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
-from app.mappers import apply_event_fields, display_name, event_to_dict
-from app.models import Event, Profile, Registration, utcnow
+from app.mappers import apply_event_fields, display_name
+from app.models import Event, Profile, Registration, WaitlistEntry, utcnow
+from app.waitlist import present_events, promote_waitlist
 from app.schemas import EventBody
 
 router = APIRouter(prefix="/api/v1.0/events", tags=["events"])
@@ -48,7 +49,7 @@ def list_events(
     events = db.scalars(
         select(Event).options(selectinload(Event.registrations)).order_by(Event.date, Event.time)
     ).all()
-    return [event_to_dict(event, current.profile_id) for event in events]
+    return present_events(db, list(events), current.profile_id)
 
 
 @router.get("/organizer/{organizer_id}")
@@ -64,7 +65,7 @@ def list_by_organizer(
         .where(Event.organizer_id == organizer_id)
         .order_by(Event.date, Event.time)
     ).all()
-    return [event_to_dict(event, current.profile_id) for event in events]
+    return present_events(db, list(events), current.profile_id)
 
 
 @router.get("/user/registered")
@@ -79,7 +80,7 @@ def list_registered(
         .where(Registration.user_id == current.profile_id)
         .order_by(Event.date, Event.time)
     ).unique().all()
-    return [event_to_dict(event, current.profile_id) for event in events]
+    return present_events(db, list(events), current.profile_id)
 
 
 @router.get("/{event_id}")
@@ -91,7 +92,7 @@ def get_event(
     event = _load_event(db, parse_id(event_id))
     if event is None:
         raise HTTPException(status_code=404)
-    return event_to_dict(event, current.profile_id)
+    return present_events(db, event, current.profile_id)
 
 
 @router.post("", status_code=201)
@@ -112,7 +113,7 @@ def create_event(
     db.commit()
     db.refresh(event)
     created = _load_event(db, event.id)
-    return event_to_dict(created, current.profile_id)
+    return present_events(db, created, current.profile_id)
 
 
 @router.put("/{event_id}")
@@ -136,7 +137,7 @@ def update_event(
     event.organizer_avatar = organizer_avatar
     db.commit()
     updated = _load_event(db, event.id)
-    return event_to_dict(updated, current.profile_id)
+    return present_events(db, updated, current.profile_id)
 
 
 @router.delete("/{event_id}", status_code=204)
@@ -167,7 +168,26 @@ def register_for_event(
     if any(item.user_id == current.profile_id for item in event.registrations):
         raise HTTPException(status_code=409)
     if event.available_spots is not None and event.available_spots <= 0:
-        raise HTTPException(status_code=400)
+        existing = db.scalar(
+            select(WaitlistEntry).where(
+                WaitlistEntry.event_id == event.id,
+                WaitlistEntry.user_id == current.profile_id,
+            )
+        )
+        if existing is None:
+            db.add(WaitlistEntry(event_id=event.id, user_id=current.profile_id))
+            db.commit()
+        updated = _load_event(db, event.id)
+        return present_events(db, updated, current.profile_id)
+
+    waiting = db.scalar(
+        select(WaitlistEntry).where(
+            WaitlistEntry.event_id == event.id,
+            WaitlistEntry.user_id == current.profile_id,
+        )
+    )
+    if waiting is not None:
+        db.delete(waiting)
 
     registration = Registration(user_id=current.profile_id, event_id=event.id, registration_date=utcnow())
     event.registrations.append(registration)
@@ -181,7 +201,7 @@ def register_for_event(
         raise HTTPException(status_code=409) from exc
 
     updated = _load_event(db, event.id)
-    return event_to_dict(updated, current.profile_id)
+    return present_events(db, updated, current.profile_id)
 
 
 @router.delete("/{event_id}/register")
@@ -195,14 +215,26 @@ def cancel_registration(
         raise HTTPException(status_code=404)
     registration = next((item for item in event.registrations if item.user_id == current.profile_id), None)
     if registration is None:
-        raise HTTPException(status_code=404)
+        waiting = db.scalar(
+            select(WaitlistEntry).where(
+                WaitlistEntry.event_id == event.id,
+                WaitlistEntry.user_id == current.profile_id,
+            )
+        )
+        if waiting is None:
+            raise HTTPException(status_code=404)
+        db.delete(waiting)
+        db.commit()
+        updated = _load_event(db, event.id)
+        return present_events(db, updated, current.profile_id)
     db.delete(registration)
     revoke_chat_access(db, event.id, current.profile_id)
     if event.available_spots is not None:
         event.available_spots += 1
+        promote_waitlist(db, event)
     db.commit()
     updated = _load_event(db, event.id)
-    return event_to_dict(updated, current.profile_id)
+    return present_events(db, updated, current.profile_id)
 
 
 @router.post("/{event_id}/image")
@@ -240,7 +272,7 @@ async def upload_image(
     event.images = images
     db.commit()
     updated = _load_event(db, event.id)
-    return event_to_dict(updated, current.profile_id)
+    return present_events(db, updated, current.profile_id)
 
 
 @router.get("/{event_id}/image")

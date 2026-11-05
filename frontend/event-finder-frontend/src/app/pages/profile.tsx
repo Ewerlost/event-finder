@@ -10,7 +10,8 @@ import {
   Edit2,
   X,
   Check,
-  Megaphone
+  Megaphone,
+  Bell
 } from "lucide-react";
 import { Header } from "../components/header";
 import { Footer } from "../components/footer";
@@ -92,6 +93,7 @@ export function ProfilePage() {
   const [organizerEvents, setOrganizerEvents] = useState<EventEntity[]>([]);
   const [organizerEventsLoading, setOrganizerEventsLoading] = useState(false);
   const [chats, setChats] = useState<{ eventId: string; title: string; date: string; access: string }[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string; eventId?: string; text: string; isRead: boolean; createdAt: string }[]>([]);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventEntity | null>(null);
   const [eventFormData, setEventFormData] = useState<Partial<EventEntity>>({
@@ -135,6 +137,20 @@ export function ProfilePage() {
           .then((response) => response.ok ? response.json() : [])
           .then(setChats)
           .catch(() => setChats([]));
+    }
+    if (activeTab === "notifications" && token) {
+      fetch(`${SERVER_URL}/api/v1.0/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+          .then((response) => response.ok ? response.json() : [])
+          .then((items) => {
+            setNotifications(items);
+            return fetch(`${SERVER_URL}/api/v1.0/notifications/read`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          })
+          .catch(() => setNotifications([]));
     }
   }, [activeTab, token, userId]);
 
@@ -671,6 +687,7 @@ export function ProfilePage() {
                   <TabsTrigger value="events" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Мероприятия</TabsTrigger>
                   <TabsTrigger value="reviews" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Отзывы</TabsTrigger>
                   <TabsTrigger value="chats" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Чаты</TabsTrigger>
+                  <TabsTrigger value="notifications" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Уведомления</TabsTrigger>
                   {/*<TabsTrigger value="settings" className="flex-shrink-0 cursor-pointer hover:bg-muted/50">Настройки</TabsTrigger>*/}
                 </TabsList>
               </Tabs>
@@ -720,6 +737,14 @@ export function ProfilePage() {
                         style={activeTab === "chats" ? { backgroundColor: 'var(--primary-color)' } : {}}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" /> Чаты
+                    </Button>
+                    <Button
+                        variant={activeTab === "notifications" ? "default" : "ghost"}
+                        className="w-full justify-start cursor-pointer hover:bg-muted/50"
+                        onClick={() => setActiveTab("notifications")}
+                        style={activeTab === "notifications" ? { backgroundColor: 'var(--primary-color)' } : {}}
+                    >
+                      <Bell className="h-4 w-4 mr-2" /> Уведомления
                     </Button>
                     {/*<Button
                         variant={activeTab === "settings" ? "default" : "ghost"}
@@ -1028,6 +1053,25 @@ export function ProfilePage() {
                               Вы еще не записались ни на одно мероприятие
                             </div>
                         )}
+                      </div>
+                  )}
+
+                  {activeTab === "notifications" && (
+                      <div className="space-y-4">
+                        <h2 className="mb-4">Уведомления</h2>
+                        {notifications.length === 0 ? (
+                            <p className="text-muted-foreground">Уведомлений пока нет.</p>
+                        ) : notifications.map((item) => (
+                            <div key={item.id} className="border rounded-lg p-4">
+                              <p>{item.text}</p>
+                              <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
+                                <span>{new Date(item.createdAt).toLocaleString("ru-RU")}</span>
+                                {item.eventId && (
+                                    <Link to={`/events/${item.eventId}`} className="hover:underline">Открыть событие</Link>
+                                )}
+                              </div>
+                            </div>
+                        ))}
                       </div>
                   )}
 
