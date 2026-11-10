@@ -131,12 +131,14 @@ def test_events_reviews_and_profile(client: TestClient):
     assert full.json()["availableSpots"] == 0
     third = _register(client, "third@example.com")
     no_spots = client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(third))
-    assert no_spots.status_code == 400
+    assert no_spots.status_code == 200
+    assert no_spots.json()["amIWaitlisted"] is True
+    assert no_spots.json()["availableSpots"] == 0
 
     cancelled = client.delete(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest))
     assert cancelled.status_code == 200
     assert cancelled.json()["amIMember"] is False
-    assert cancelled.json()["availableSpots"] == 1
+    assert cancelled.json()["availableSpots"] == 0
 
     upload = client.post(
         f"/api/v1.0/events/{event_id}/image",
@@ -164,6 +166,16 @@ def test_events_reviews_and_profile(client: TestClient):
         files={"file": ("notes.txt", b"hello", "text/plain")},
     )
     assert bad_type.status_code == 400
+
+    current_event = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(owner)).json()
+    current_event["availableSpots"] = 1
+    current_event["totalSpots"] = max(current_event["totalSpots"], 1)
+    assert client.put(f"/api/v1.0/events/{event_id}", json=current_event, headers=_headers(owner)).status_code == 200
+    assert client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest)).status_code == 200
+    finished = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(owner)).json()
+    finished["date"] = "2020-01-01"
+    finished["time"] = "10:00"
+    assert client.put(f"/api/v1.0/events/{event_id}", json=finished, headers=_headers(owner)).status_code == 200
 
     review = client.post(
         "/api/v1.0/reviews",
@@ -255,8 +267,11 @@ def test_events_reviews_and_profile(client: TestClient):
 
     removed_event = client.delete(f"/api/v1.0/events/{event_id}", headers=_headers(owner))
     assert removed_event.status_code == 204
-    missing_event = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(owner))
-    assert missing_event.status_code == 404
+    kept_event = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(owner))
+    assert kept_event.status_code == 200
+    assert kept_event.json()["status"] == "cancelled"
+    public_events = client.get("/api/v1.0/events", headers=_headers(owner))
+    assert event_id not in [item["id"] for item in public_events.json()]
 
     bad_password = client.request(
         "DELETE",
@@ -312,6 +327,11 @@ def test_author_deletes_own_reviews(client: TestClient):
     owner_id = _profile_id(client, owner)
     created = client.post("/api/v1.0/events", json=_event(), headers=_headers(owner))
     event_id = created.json()["id"]
+    assert client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest)).status_code == 200
+    finished = client.get(f"/api/v1.0/events/{event_id}", headers=_headers(owner)).json()
+    finished["date"] = "2020-01-01"
+    finished["time"] = "10:00"
+    assert client.put(f"/api/v1.0/events/{event_id}", json=finished, headers=_headers(owner)).status_code == 200
 
     review = client.post(
         "/api/v1.0/reviews",
@@ -514,6 +534,121 @@ def _last_token() -> str:
     from tests.conftest import _token_from_outbox
 
     return _token_from_outbox()
+
+
+def test_past_events_stay_in_history_and_reviews_need_attendance(client: TestClient):
+    owner = _register(client, "history-owner@example.com")
+    guest = _register(client, "history-guest@example.com")
+    stranger = _register(client, "history-stranger@example.com")
+    owner_id = _profile_id(client, owner)
+
+    past = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Уже прошло", date="2020-01-01", time="10:00"),
+        headers=_headers(owner),
+    )
+    assert past.status_code == 201
+    past_id = past.json()["id"]
+
+    upcoming = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Ещё впереди", date="2030-01-01", time="10:00"),
+        headers=_headers(owner),
+    )
+    assert upcoming.status_code == 201
+    upcoming_id = upcoming.json()["id"]
+
+    public = client.get("/api/v1.0/events", headers=_headers(stranger))
+    public_ids = [item["id"] for item in public.json()]
+    assert past_id not in public_ids
+    assert upcoming_id in public_ids
+
+    too_early = client.post(
+        "/api/v1.0/reviews",
+        headers=_headers(guest),
+        json={
+            "eventId": past_id,
+            "userId": _profile_id(client, guest),
+            "userName": "Гость",
+            "rating": 5,
+            "comment": "Рано",
+            "date": "2026-11-10T12:00:00.000Z",
+        },
+    )
+    assert too_early.status_code == 403
+
+    assert client.post(f"/api/v1.0/events/{past_id}/register", headers=_headers(guest)).status_code == 200
+    assert client.post(f"/api/v1.0/events/{upcoming_id}/register", headers=_headers(guest)).status_code == 200
+
+    attended = client.post(
+        "/api/v1.0/reviews",
+        headers=_headers(guest),
+        json={
+            "eventId": past_id,
+            "userId": _profile_id(client, guest),
+            "userName": "Гость",
+            "rating": 5,
+            "comment": "Было здорово",
+            "date": "2026-11-10T12:00:00.000Z",
+        },
+    )
+    assert attended.status_code == 201
+
+    not_finished = client.post(
+        "/api/v1.0/reviews",
+        headers=_headers(guest),
+        json={
+            "eventId": upcoming_id,
+            "userId": _profile_id(client, guest),
+            "userName": "Гость",
+            "rating": 4,
+            "comment": "Ещё не было",
+            "date": "2026-11-10T12:00:00.000Z",
+        },
+    )
+    assert not_finished.status_code == 400
+
+    organizer_review = client.post(
+        "/api/v1.0/organizer-reviews",
+        headers=_headers(stranger),
+        json={"organizerId": owner_id, "rating": 5, "comment": "Хороший организатор"},
+    )
+    assert organizer_review.status_code == 201
+
+    visited = client.get("/api/v1.0/events/user/registered", headers=_headers(guest))
+    visited_ids = [item["id"] for item in visited.json()]
+    assert past_id in visited_ids
+    assert upcoming_id in visited_ids
+
+    history = client.get(f"/api/v1.0/events/organizer/{owner_id}", headers=_headers(owner))
+    assert {item["id"] for item in history.json()} >= {past_id, upcoming_id}
+
+    removed = client.delete(f"/api/v1.0/events/{upcoming_id}", headers=_headers(owner))
+    assert removed.status_code == 204
+    cancelled = client.get(f"/api/v1.0/events/{upcoming_id}", headers=_headers(guest))
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+
+    public_after = client.get("/api/v1.0/events", headers=_headers(stranger))
+    assert upcoming_id not in [item["id"] for item in public_after.json()]
+    organizer_after = client.get(f"/api/v1.0/events/organizer/{owner_id}", headers=_headers(owner))
+    assert upcoming_id in [item["id"] for item in organizer_after.json()]
+    registered_after = client.get("/api/v1.0/events/user/registered", headers=_headers(guest))
+    assert upcoming_id in [item["id"] for item in registered_after.json()]
+
+    cancelled_review = client.post(
+        "/api/v1.0/reviews",
+        headers=_headers(guest),
+        json={
+            "eventId": upcoming_id,
+            "userId": _profile_id(client, guest),
+            "userName": "Гость",
+            "rating": 2,
+            "comment": "Отменили",
+            "date": "2026-11-10T12:00:00.000Z",
+        },
+    )
+    assert cancelled_review.status_code == 400
 
 
 def _headers(token: str) -> dict:

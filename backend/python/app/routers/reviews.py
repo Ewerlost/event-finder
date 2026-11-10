@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
+from app.event_status import is_cancelled, is_past
 from app.mappers import display_name, review_to_dict
-from app.models import Event, Profile, Review
+from app.models import Event, Profile, Registration, Review
 from app.schemas import ReviewBody
 
 router = APIRouter(prefix="/api/v1.0/reviews", tags=["reviews"])
@@ -103,6 +104,18 @@ def create_review(
     profile = db.get(Profile, current.profile_id)
     if profile is None:
         raise HTTPException(status_code=401)
+    if is_cancelled(event):
+        raise HTTPException(status_code=400)
+    if not is_past(event):
+        raise HTTPException(status_code=400)
+    attended = db.scalar(
+        select(Registration).where(
+            Registration.event_id == event.id,
+            Registration.user_id == current.profile_id,
+        )
+    )
+    if attended is None:
+        raise HTTPException(status_code=403)
 
     review = Review(
         event_id=event.id,

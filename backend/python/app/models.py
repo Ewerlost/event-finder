@@ -94,6 +94,7 @@ class Event(Base):
     organizer_avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     available_spots: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_spots: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
 
     registrations: Mapped[list["Registration"]] = relationship(
         back_populates="event", cascade="all, delete-orphan"

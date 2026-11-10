@@ -44,6 +44,7 @@ export function EventsMapPage() {
     const [locating, setLocating] = useState(false);
     const [center, setCenter] = useState<[number, number]>(MINSK);
     const [zoom, setZoom] = useState(12);
+    const [searchReady, setSearchReady] = useState(false);
 
     const loadEvents = async () => {
         if (!token) return;
@@ -111,6 +112,11 @@ export function EventsMapPage() {
                         <div className="md:col-span-2 relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
+                                type="search"
+                                name="map-event-search"
+                                autoComplete="off"
+                                readOnly={!searchReady}
+                                onFocus={() => setSearchReady(true)}
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                                 placeholder="Поиск по названию..."
@@ -144,12 +150,14 @@ export function EventsMapPage() {
                         <div className="flex justify-center py-20">
                             <Loader2 className="h-8 w-8 animate-spin text-[var(--primary-color)]" />
                         </div>
-                    ) : error ? (
-                        <div className="text-center py-16">
-                            <p className="text-red-500 mb-4">{error}</p>
-                            <Button onClick={loadEvents}>Попробовать снова</Button>
-                        </div>
                     ) : (
+                        <div className="space-y-4">
+                        {error && (
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <p className="text-red-500">{error}</p>
+                                <Button onClick={loadEvents}>Попробовать снова</Button>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                             <div className="lg:col-span-3 h-[420px] lg:h-[calc(100vh-220px)] rounded-lg overflow-hidden border bg-card">
                                 <Map state={{ center, zoom }} width="100%" height="100%">
@@ -178,6 +186,7 @@ export function EventsMapPage() {
                                     <EventCard key={event.id} event={event} compact />
                                 ))}
                             </div>
+                        </div>
                         </div>
                     )}
                 </div>

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
+from app.event_status import is_cancelled
 from app.mappers import event_to_dict
 from app.models import Event, Registration, UserInterest
 
@@ -109,7 +110,10 @@ def recommend_for_user(db: Session, profile_id: str, profile_coordinates: tuple[
             .where(Event.organizer_id != profile_id)
         ).all()
     )
-    candidates = [event for event in events if event.id not in registered_ids]
+    candidates = [
+        event for event in events
+        if event.id not in registered_ids and not is_cancelled(event)
+    ]
     ranked_ids = model_rank(profile_id, interests, sorted(history), candidates)
     source = "model" if ranked_ids is not None else "rules"
     if ranked_ids is None:

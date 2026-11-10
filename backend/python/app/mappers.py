@@ -55,6 +55,7 @@ def event_to_dict(event: Event, current_profile_id: str | None) -> dict:
         "organizerAvatar": event.organizer_avatar,
         "availableSpots": event.available_spots,
         "totalSpots": event.total_spots,
+        "status": getattr(event, "status", None) or "active",
         "amIMember": current_profile_id is not None and current_profile_id in member_ids,
     }
 

@@ -25,6 +25,7 @@ export function EventFeed() {
   const [displayedEvents, setDisplayedEvents] = useState<EventEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchReady, setSearchReady] = useState(false);
 
   const cities = [...new Set(allEvents.map(event => event.address?.split(',')[0]?.trim() || event.location))];
   const categories = [...new Set(allEvents.map(event => event.category))];
@@ -122,6 +123,11 @@ export function EventFeed() {
             <div className="md:col-span-2 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                  type="search"
+                  name="event-search"
+                  autoComplete="off"
+                  readOnly={!searchReady}
+                  onFocus={() => setSearchReady(true)}
                   placeholder="Поиск по названию или описанию..."
                   className="pl-10"
                   value={searchQuery}

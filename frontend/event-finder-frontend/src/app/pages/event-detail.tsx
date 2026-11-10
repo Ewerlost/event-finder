@@ -24,6 +24,11 @@ import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
 import {SERVER_URL} from "../config/serverConfig";
 import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
 
+function isPastEvent(event: { date: string; time?: string }) {
+  const stamp = new Date(`${event.date}T${event.time || "23:59"}:00Z`).getTime();
+  return !Number.isNaN(stamp) && stamp < Date.now();
+}
+
 export function EventDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -303,6 +308,8 @@ export function EventDetailPage() {
 
   const isOrganizer = event.organizerId === userId;
   const isFullyBooked = event.availableSpots === 0;
+  const eventHasPassed = isPastEvent(event);
+  const canReviewEvent = !isOrganizer && isRegistered && eventHasPassed && event.status !== "cancelled";
 
   // @ts-ignore
   return (
@@ -377,7 +384,7 @@ export function EventDetailPage() {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2>Отзывы о мероприятии</h2>
-                    {!isOrganizer && userId && !showReviewForm && (
+                    {canReviewEvent && !showReviewForm && (
                         <Button
                             variant="outline"
                             onClick={() => setShowReviewForm(true)}
@@ -385,6 +392,9 @@ export function EventDetailPage() {
                         >
                           Написать отзыв
                         </Button>
+                    )}
+                    {!isOrganizer && isRegistered && !eventHasPassed && event.status !== "cancelled" && (
+                        <p className="text-sm text-muted-foreground">Отзыв можно оставить после мероприятия</p>
                     )}
                   </div>
 

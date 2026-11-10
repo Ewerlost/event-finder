@@ -11,6 +11,7 @@ from app.chat_access import grant_chat_access, revoke_chat_access
 from app.config import get_settings
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
+from app.event_status import is_cancelled, is_past
 from app.mappers import apply_event_fields, display_name
 from app.models import Event, Notification, Profile, Registration, WaitlistEntry, utcnow
 from app.waitlist import present_events, promote_waitlist
@@ -49,6 +50,7 @@ def list_events(
     events = db.scalars(
         select(Event).options(selectinload(Event.registrations)).order_by(Event.date, Event.time)
     ).all()
+    events = [event for event in events if not is_cancelled(event) and not is_past(event)]
     return present_events(db, list(events), current.profile_id)
 
 
@@ -186,7 +188,7 @@ def delete_event(
         raise HTTPException(status_code=403)
     title = event.title
     _notify_participants(db, event, f"Мероприятие «{title}» отменено.", False)
-    db.delete(event)
+    event.status = "cancelled"
     db.commit()
     return Response(status_code=204)
 

@@ -24,6 +24,10 @@ def _ensure_chat_columns() -> None:
         statements.append("ALTER TABLE chat_messages ADD COLUMN kind VARCHAR(20) DEFAULT 'text'")
     if "image_path" not in names:
         statements.append("ALTER TABLE chat_messages ADD COLUMN image_path VARCHAR(500)")
+    if inspector.has_table("events"):
+        event_columns = {column["name"] for column in inspector.get_columns("events")}
+        if "status" not in event_columns:
+            statements.append("ALTER TABLE events ADD COLUMN status VARCHAR(20) DEFAULT 'active'")
     if not statements:
         return
     with engine.begin() as connection:

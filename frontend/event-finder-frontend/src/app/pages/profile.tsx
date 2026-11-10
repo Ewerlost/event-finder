@@ -62,6 +62,32 @@ import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
 import { SERVER_URL } from "../config/serverConfig";
 import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
 
+function isPastEvent(event: EventEntity) {
+  const stamp = new Date(`${event.date}T${event.time || "23:59"}:00Z`).getTime();
+  return !Number.isNaN(stamp) && stamp < Date.now();
+}
+
+function EventGroup({ title, empty, events }: { title: string; empty: string; events: EventEntity[] }) {
+  return (
+      <div className="space-y-4">
+        <h3>{title}</h3>
+        {events.length === 0 ? (
+            <p className="text-muted-foreground">{empty}</p>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {events.map((event) => (
+                  <div key={event.id} className="space-y-2">
+                    {event.status === "cancelled" && <p className="text-sm text-destructive">Отменено</p>}
+                    {event.status !== "cancelled" && isPastEvent(event) && <p className="text-sm text-muted-foreground">Прошло</p>}
+                    <EventCard event={event} />
+                  </div>
+              ))}
+            </div>
+        )}
+      </div>
+  );
+}
+
 export function ProfilePage() {
   const { token, logout, userId } = useAuth();
   const [activeTab, setActiveTab] = useState("personal");
@@ -590,11 +616,11 @@ export function ProfilePage() {
   // Организатор: удалить мероприятие
   const handleDeleteEvent = async (eventId: string) => {
     if (!token) return;
-    if (!confirm("Вы уверены, что хотите удалить это мероприятие?")) return;
+    if (!confirm("Отменить мероприятие? Оно останется в истории, а записанные получат уведомление.")) return;
     try {
       await eventsService.deleteEvent(eventId, token);
-      setOrganizerEvents(prev => prev.filter(e => e.id !== eventId));
-      showSuccess("Мероприятие удалено");
+      setOrganizerEvents(prev => prev.map(event => event.id === eventId ? { ...event, status: "cancelled" } : event));
+      showSuccess("Мероприятие отменено и сохранено в истории");
     } catch (err) {
       console.error("Failed to delete event:", err);
       showError("Не удалось удалить мероприятие");
@@ -1003,8 +1029,12 @@ export function ProfilePage() {
                               <Loader2 className="h-8 w-8 animate-spin text-[var(--primary-color)]" />
                             </div>
                         ) : organizerEvents.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {organizerEvents.map((event) => (
+                            <div className="space-y-8">
+                              <div className="space-y-4">
+                              <h3>Предстоящие</h3>
+                              {organizerEvents.some((event) => event.status !== "cancelled" && !isPastEvent(event)) ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {organizerEvents.filter((event) => event.status !== "cancelled" && !isPastEvent(event)).map((event) => (
                                   <div key={event.id} className="relative group">
                                     <EventCard event={event} />
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1022,6 +1052,16 @@ export function ProfilePage() {
                                     </div>
                                   </div>
                               ))}
+                              </div>
+                              ) : (
+                                  <p className="text-muted-foreground">Предстоящих мероприятий нет.</p>
+                              )}
+                              </div>
+                              <EventGroup
+                                  title="История"
+                                  empty="Прошедших и отменённых мероприятий пока нет."
+                                  events={organizerEvents.filter((event) => event.status === "cancelled" || isPastEvent(event))}
+                              />
                             </div>
                         ) : (
                             <div className="text-center py-12 text-muted-foreground">
@@ -1036,21 +1076,29 @@ export function ProfilePage() {
                       <div className="space-y-6">
                         <div>
                           <h2 className="mb-4">Мои мероприятия</h2>
-                          <p className="text-muted-foreground mb-6">Мероприятия, на которые вы записались</p>
+                          <p className="text-muted-foreground mb-6">Предстоящие записи и посещённые встречи</p>
                         </div>
                         {eventsLoading ? (
                             <div className="flex justify-center py-12">
                               <Loader2 className="h-8 w-8 animate-spin text-[var(--primary-color)]" />
                             </div>
-                        ) : userEvents.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {userEvents.map((event) => (
-                                  <EventCard key={event.id} event={event} />
-                              ))}
-                            </div>
                         ) : (
-                            <div className="text-center py-12 text-muted-foreground">
-                              Вы еще не записались ни на одно мероприятие
+                            <div className="space-y-8">
+                              <EventGroup
+                                  title="Предстоящие"
+                                  empty="Вы еще не записались ни на одно мероприятие"
+                                  events={userEvents.filter((event) => event.status !== "cancelled" && !isPastEvent(event))}
+                              />
+                              <EventGroup
+                                  title="Посещённые"
+                                  empty="Посещённых мероприятий пока нет."
+                                  events={userEvents.filter((event) => event.status !== "cancelled" && isPastEvent(event))}
+                              />
+                              <EventGroup
+                                  title="Отменённые"
+                                  empty="Отменённых записей нет."
+                                  events={userEvents.filter((event) => event.status === "cancelled")}
+                              />
                             </div>
                         )}
                       </div>
