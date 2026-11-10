@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
 from app.mappers import apply_event_fields, display_name
-from app.models import Event, Profile, Registration, WaitlistEntry, utcnow
+from app.models import Event, Notification, Profile, Registration, WaitlistEntry, utcnow
 from app.waitlist import present_events, promote_waitlist
 from app.schemas import EventBody
 
@@ -116,6 +116,22 @@ def create_event(
     return present_events(db, created, current.profile_id)
 
 
+def _notify_participants(db: Session, event: Event, text: str, link_event: bool) -> None:
+    seen: set[str] = set()
+    registrations = db.scalars(select(Registration).where(Registration.event_id == event.id)).all()
+    for registration in registrations:
+        if registration.user_id == event.organizer_id or registration.user_id in seen:
+            continue
+        seen.add(registration.user_id)
+        db.add(
+            Notification(
+                user_id=registration.user_id,
+                event_id=event.id if link_event else None,
+                text=text,
+            )
+        )
+
+
 @router.put("/{event_id}")
 def update_event(
     event_id: str,
@@ -131,6 +147,23 @@ def update_event(
 
     organizer_name = event.organizer_name
     organizer_avatar = event.organizer_avatar
+    changes = []
+    if (event.date or "") != (body.date or ""):
+        changes.append("дату")
+    if (event.time or "") != (body.time or ""):
+        changes.append("время")
+    place_changed = (event.location or "") != (body.location or "") or (event.address or "") != (body.address or "")
+    if list(event.coordinates or []) != list(body.coordinates or []):
+        place_changed = True
+    if place_changed:
+        changes.append("место")
+    if changes:
+        _notify_participants(
+            db,
+            event,
+            f"Мероприятие «{event.title}» изменено: {', '.join(changes)}.",
+            True,
+        )
     apply_event_fields(event, body)
     event.organizer_id = current.profile_id
     event.organizer_name = organizer_name
@@ -151,6 +184,8 @@ def delete_event(
         raise HTTPException(status_code=404)
     if event.organizer_id != current.profile_id:
         raise HTTPException(status_code=403)
+    title = event.title
+    _notify_participants(db, event, f"Мероприятие «{title}» отменено.", False)
     db.delete(event)
     db.commit()
     return Response(status_code=204)

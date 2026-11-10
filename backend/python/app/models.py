@@ -146,6 +146,8 @@ class ChatMessage(Base):
     author_name: Mapped[str] = mapped_column(String(200), default="")
     author_is_organizer: Mapped[bool] = mapped_column(Boolean, default=False)
     body: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(20), default="text", server_default="text")
+    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 

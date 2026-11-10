@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 from app.config import get_settings
 from app.database import Base, engine
@@ -13,11 +14,30 @@ from app.routers import auth, chat, events, notifications, organizer_reviews, re
 logger = logging.getLogger(__name__)
 
 
+def _ensure_chat_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("chat_messages"):
+        return
+    names = {column["name"] for column in inspector.get_columns("chat_messages")}
+    statements = []
+    if "kind" not in names:
+        statements.append("ALTER TABLE chat_messages ADD COLUMN kind VARCHAR(20) DEFAULT 'text'")
+    if "image_path" not in names:
+        statements.append("ALTER TABLE chat_messages ADD COLUMN image_path VARCHAR(500)")
+    if not statements:
+        return
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _ensure_chat_columns()
     uploads = Path(get_settings().upload_dir) / "images" / "events"
     uploads.mkdir(parents=True, exist_ok=True)
+    (Path(get_settings().upload_dir) / "images" / "chat").mkdir(parents=True, exist_ok=True)
     logger.info("Database schema is ready")
     yield
 

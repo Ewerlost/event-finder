@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Megaphone, Send } from "lucide-react";
 import { Header } from "../components/header";
 import { Footer } from "../components/footer";
 import { Button } from "../components/ui/button";
@@ -12,8 +12,36 @@ interface ChatMessage {
     id: string;
     authorName: string;
     authorIsOrganizer: boolean;
+    kind?: string;
     text: string;
+    hasImage?: boolean;
     createdAt: string;
+}
+
+function ChatImage({ eventId, messageId, token }: { eventId: string; messageId: string; token: string }) {
+    const [src, setSrc] = useState<string | null>(null);
+
+    useEffect(() => {
+        let objectUrl = "";
+        let cancelled = false;
+        fetch(`${SERVER_URL}/api/v1.0/events/${eventId}/chat/messages/${messageId}/image`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((response) => response.ok ? response.blob() : null)
+            .then((blob) => {
+                if (!blob || cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setSrc(objectUrl);
+            })
+            .catch(() => setSrc(null));
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [eventId, messageId, token]);
+
+    if (!src) return null;
+    return <img src={src} alt="" className="max-h-64 rounded-md" />;
 }
 
 export function EventChatPage() {
@@ -23,6 +51,8 @@ export function EventChatPage() {
     const [access, setAccess] = useState<"full" | "history" | "none">("none");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [draft, setDraft] = useState("");
+    const [asAnnouncement, setAsAnnouncement] = useState(false);
+    const [isOrganizer, setIsOrganizer] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
     const socketRef = useRef<WebSocket | null>(null);
@@ -71,6 +101,7 @@ export function EventChatPage() {
                 const data = await response.json();
                 setTitle(data.title);
                 setAccess(data.access);
+                setIsOrganizer(!!data.isOrganizer);
                 setMessages(data.messages);
                 connect();
             })
@@ -91,8 +122,25 @@ export function EventChatPage() {
         const text = draft.trim();
         const socket = socketRef.current;
         if (!text || !socket || socket.readyState !== WebSocket.OPEN || access !== "full") return;
-        socket.send(JSON.stringify({ text }));
+        socket.send(JSON.stringify({ text, kind: asAnnouncement ? "announcement" : "text" }));
         setDraft("");
+    };
+
+    const uploadImage = async (file: File) => {
+        if (!token || !id) return;
+        const form = new FormData();
+        form.append("file", file);
+        const response = await fetch(`${SERVER_URL}/api/v1.0/events/${id}/chat/images`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: form,
+        });
+        if (!response.ok) {
+            setError("Не удалось отправить изображение");
+            return;
+        }
+        const saved = await response.json();
+        setMessages((current) => current.some((item) => item.id === saved.id) ? current : [...current, saved]);
     };
 
     return (
@@ -118,6 +166,11 @@ export function EventChatPage() {
                             <div key={message.id} className="space-y-1">
                                 <div className="flex items-center gap-2 text-sm">
                                     <span className="font-medium">{message.authorName}</span>
+                                    {message.kind === "announcement" && (
+                                        <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs">
+                                            Объявление
+                                        </span>
+                                    )}
                                     {message.authorIsOrganizer && (
                                         <span className="rounded-full bg-indigo-100 text-indigo-700 px-2 py-0.5 text-xs">
                                             Организатор
@@ -127,13 +180,29 @@ export function EventChatPage() {
                                         {new Date(message.createdAt).toLocaleString("ru-RU")}
                                     </span>
                                 </div>
-                                <p>{message.text}</p>
+                                {message.kind === "image" && token && id ? (
+                                    <ChatImage eventId={id} messageId={message.id} token={token} />
+                                ) : (
+                                    <p>{message.text}</p>
+                                )}
                             </div>
                         ))}
                         <div ref={bottomRef} />
                     </div>
                     {access === "full" ? (
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-4 space-y-2">
+                            {isOrganizer && (
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={asAnnouncement}
+                                        onChange={(event) => setAsAnnouncement(event.target.checked)}
+                                    />
+                                    <Megaphone className="h-4 w-4" />
+                                    Отправить как объявление
+                                </label>
+                            )}
+                            <div className="flex gap-2">
                             <Input
                                 value={draft}
                                 onChange={(event) => setDraft(event.target.value)}
@@ -143,9 +212,20 @@ export function EventChatPage() {
                                 placeholder="Сообщение"
                                 disabled={!connected}
                             />
+                            <Input
+                                type="file"
+                                accept="image/png,image/jpeg,image/gif,image/bmp"
+                                className="max-w-48 cursor-pointer"
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) uploadImage(file);
+                                    event.target.value = "";
+                                }}
+                            />
                             <Button onClick={send} disabled={!connected || !draft.trim()} style={{ backgroundColor: "var(--primary-color)" }}>
                                 {connected ? <Send className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
                             </Button>
+                            </div>
                         </div>
                     ) : null}
                 </div>

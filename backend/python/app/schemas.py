@@ -4,8 +4,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     email: str
     password: str
+    is_at_least_16: Annotated[bool, Field(alias="isAtLeast16")] = False
 
 
 class LoginRequest(BaseModel):

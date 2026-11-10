@@ -1,12 +1,17 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.chat_access import as_utc, chat_access, visible_messages
 from app.chat_hub import hub
+from app.config import get_settings
 from app.database import SessionLocal, get_db
 from app.deps import CurrentUser, get_current_user, parse_id
 from app.mappers import display_name
@@ -24,7 +29,9 @@ def message_to_dict(message: ChatMessage) -> dict:
         "authorId": message.author_id,
         "authorName": message.author_name,
         "authorIsOrganizer": message.author_is_organizer,
+        "kind": message.kind or "text",
         "text": message.body,
+        "hasImage": bool(message.image_path),
         "createdAt": created.isoformat().replace("+00:00", "Z"),
     }
 
@@ -44,13 +51,22 @@ def _account_from_token(db: Session, token: str) -> tuple[Account, str] | None:
     return account, str(profile_id)
 
 
-def _save_message(db: Session, event: Event, profile: Profile, text: str) -> ChatMessage:
+def _save_message(
+    db: Session,
+    event: Event,
+    profile: Profile,
+    text: str,
+    kind: str = "text",
+    image_path: str | None = None,
+) -> ChatMessage:
     message = ChatMessage(
         event_id=event.id,
         author_id=profile.id,
         author_name=display_name(profile),
         author_is_organizer=event.organizer_id == profile.id,
         body=text,
+        kind=kind,
+        image_path=image_path,
         created_at=datetime.now(timezone.utc),
     )
     db.add(message)
@@ -108,8 +124,69 @@ def chat_state(
         "eventId": event.id,
         "title": event.title,
         "access": access,
+        "isOrganizer": event.organizer_id == current.profile_id,
         "messages": [message_to_dict(message) for message in messages],
     }
+
+
+_CHAT_IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".bmp": "image/bmp"}
+
+
+@router.post("/events/{event_id}/chat/images")
+async def upload_chat_image(
+    event_id: str,
+    file: UploadFile = File(...),
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    event = db.get(Event, parse_id(event_id))
+    if event is None:
+        raise HTTPException(status_code=404)
+    profile = db.get(Profile, current.profile_id)
+    if profile is None:
+        raise HTTPException(status_code=401)
+    access, _left_at = chat_access(db, event, profile.id)
+    if access != "full":
+        raise HTTPException(status_code=403)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    extension = Path(file.filename).suffix.lower()
+    if extension not in _CHAT_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid file type.")
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    folder = Path(get_settings().upload_dir) / "images" / "chat"
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid4()}{extension}"
+    (folder / filename).write_bytes(payload)
+    message = _save_message(db, event, profile, "", kind="image", image_path=f"/images/chat/{filename}")
+    await hub.broadcast(
+        event.id,
+        {"type": "message", "message": message_to_dict(message)},
+        as_utc(message.created_at),
+    )
+    return message_to_dict(message)
+
+
+@router.get("/events/{event_id}/chat/messages/{message_id}/image")
+def get_chat_image(
+    event_id: str,
+    message_id: str,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    event = db.get(Event, parse_id(event_id))
+    message = db.get(ChatMessage, parse_id(message_id))
+    if event is None or message is None or message.event_id != event.id or not message.image_path:
+        raise HTTPException(status_code=404)
+    _access, visible = visible_messages(db, event, current.profile_id)
+    if _access == "none" or all(item.id != message.id for item in visible):
+        raise HTTPException(status_code=404)
+    path = Path(get_settings().upload_dir) / message.image_path.lstrip("/")
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type=_CHAT_IMAGE_TYPES.get(path.suffix.lower(), "application/octet-stream"))
 
 
 @router.websocket("/events/{event_id}/chat/ws")
@@ -144,6 +221,13 @@ async def chat_socket(websocket: WebSocket, event_id: str, token: str = Query(..
         )
         while True:
             incoming = await websocket.receive_json()
+            kind = str(incoming.get("kind") or "text")
+            if kind not in ("text", "announcement"):
+                await websocket.send_json({"type": "error", "message": "Неизвестный тип сообщения"})
+                continue
+            if kind == "announcement" and event.organizer_id != profile_id:
+                await websocket.send_json({"type": "error", "message": "Объявление может отправить только организатор"})
+                continue
             text = str(incoming.get("text") or "").strip()
             if not text:
                 await websocket.send_json({"type": "error", "message": "Пустое сообщение"})
@@ -162,7 +246,7 @@ async def chat_socket(websocket: WebSocket, event_id: str, token: str = Query(..
             if access != "full":
                 await websocket.send_json({"type": "error", "message": "Сейчас можно только читать историю"})
                 continue
-            message = _save_message(db, event, profile, text)
+            message = _save_message(db, event, profile, text, kind=kind)
             await hub.broadcast(
                 event_id,
                 {"type": "message", "message": message_to_dict(message)},

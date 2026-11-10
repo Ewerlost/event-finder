@@ -24,13 +24,13 @@ export async function verifyEmail(token: string): Promise<AuthResponse> {
 }
 
 // ------------------ REGISTER ------------------
-export async function register(email: string, password: string): Promise<void> {
+export async function register(email: string, password: string, isAtLeast16: boolean): Promise<void> {
     const response = await fetch(`${SERVER_URL}/api/v1.0/auth/register`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, isAtLeast16 }),
     });
 
     if (!response.ok) {

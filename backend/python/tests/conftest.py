@@ -31,7 +31,10 @@ def _token_from_outbox() -> str:
 
 
 def _register_and_verify(client: TestClient, email: str, password: str = "Password1!") -> str:
-    response = client.post("/api/v1.0/auth/register", json={"email": email, "password": password})
+    response = client.post(
+        "/api/v1.0/auth/register",
+        json={"email": email, "password": password, "isAtLeast16": True},
+    )
     assert response.status_code == 200
     verified = client.get("/api/v1.0/auth/verify", params={"token": _token_from_outbox()})
     assert verified.status_code == 200

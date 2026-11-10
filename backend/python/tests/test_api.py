@@ -5,6 +5,12 @@ def test_register_login_and_password_reset(client: TestClient):
     token = _register(client, "alex@example.com")
     profile_id = _profile_id(client, token)
 
+    too_young = client.post(
+        "/api/v1.0/auth/register",
+        json={"email": "young@example.com", "password": "Password1!", "isAtLeast16": False},
+    )
+    assert too_young.status_code == 400
+
     me = client.get(f"/api/v1.0/users/{profile_id}", headers=_headers(token))
     assert me.status_code == 200
     assert me.json()["email"] == "alex@example.com"
@@ -12,7 +18,7 @@ def test_register_login_and_password_reset(client: TestClient):
 
     duplicate = client.post(
         "/api/v1.0/auth/register",
-        json={"email": "Alex@example.com", "password": "Password1!"},
+        json={"email": "Alex@example.com", "password": "Password1!", "isAtLeast16": True},
     )
     assert duplicate.status_code == 409
 
@@ -34,7 +40,7 @@ def test_register_login_and_password_reset(client: TestClient):
 
     pending = client.post(
         "/api/v1.0/auth/register",
-        json={"email": "pending@example.com", "password": "Password1!"},
+        json={"email": "pending@example.com", "password": "Password1!", "isAtLeast16": True},
     )
     assert pending.status_code == 200
     forbidden = client.post(
@@ -398,6 +404,63 @@ def test_waitlist_promotes_the_latest_person(client: TestClient):
     notes = client.get("/api/v1.0/notifications", headers=_headers(third))
     assert notes.status_code == 200
     assert "Освободилось место" in notes.json()[0]["text"]
+
+
+def test_event_change_and_cancellation_notify_participants(client: TestClient):
+    owner = _register(client, "change-owner@example.com")
+    guest = _register(client, "change-guest@example.com")
+    created = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Встреча", date="2026-12-01", time="18:00"),
+        headers=_headers(owner),
+    )
+    event_id = created.json()["id"]
+    payload = created.json()
+    assert client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest)).status_code == 200
+
+    payload["date"] = "2026-12-02"
+    payload["time"] = "19:00"
+    updated = client.put(f"/api/v1.0/events/{event_id}", json=payload, headers=_headers(owner))
+    assert updated.status_code == 200
+    notes = client.get("/api/v1.0/notifications", headers=_headers(guest)).json()
+    assert any("дату" in item["text"] and "время" in item["text"] for item in notes)
+
+    assert client.delete(f"/api/v1.0/events/{event_id}", headers=_headers(owner)).status_code == 204
+    notes = client.get("/api/v1.0/notifications", headers=_headers(guest)).json()
+    assert any("отменено" in item["text"] for item in notes)
+
+
+def test_organizer_announcement_and_chat_image(client: TestClient):
+    owner = _register(client, "announce-owner@example.com")
+    guest = _register(client, "announce-guest@example.com")
+    created = client.post("/api/v1.0/events", json=_event(), headers=_headers(owner))
+    event_id = created.json()["id"]
+    client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest))
+
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={guest}") as guest_socket:
+        guest_socket.receive_json()
+        guest_socket.send_json({"text": "нельзя", "kind": "announcement"})
+        assert guest_socket.receive_json()["type"] == "error"
+
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={owner}") as owner_socket:
+        owner_socket.receive_json()
+        owner_socket.send_json({"text": "Сбор у входа", "kind": "announcement"})
+        announcement = owner_socket.receive_json()["message"]
+        assert announcement["kind"] == "announcement"
+
+    uploaded = client.post(
+        f"/api/v1.0/events/{event_id}/chat/images",
+        headers=_headers(guest),
+        files={"file": ("chat.png", b"\x89PNG\r\n\x1a\nfake", "image/png")},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()["kind"] == "image"
+    image = client.get(
+        f"/api/v1.0/events/{event_id}/chat/messages/{uploaded.json()['id']}/image",
+        headers=_headers(guest),
+    )
+    assert image.status_code == 200
+    assert image.headers["content-type"].startswith("image/png")
 
 
 def test_event_chat_keeps_history_after_leave(client: TestClient):

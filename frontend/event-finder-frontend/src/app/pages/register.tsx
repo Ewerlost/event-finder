@@ -17,6 +17,8 @@ export const RegisterPage = () => {
 
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedRules, setAcceptedRules] = useState(false);
+    const [isAtLeast16, setIsAtLeast16] = useState(false);
+    const [ageError, setAgeError] = useState("");
 
     // password checks
     const hasLength = password.length >= 8 && password.length <= 40;
@@ -28,7 +30,7 @@ export const RegisterPage = () => {
     const emailValid = isEmailValid(email);
     const passwordsMatch = password !== "" && repeatPassword !== "" && password === repeatPassword;
 
-    const formValid = emailValid && passwordValid && passwordsMatch && acceptedRules;
+    const formValid = emailValid && passwordValid && passwordsMatch && acceptedRules && isAtLeast16;
 
     const onSubmitClick = async () => {
         let hasError = false;
@@ -51,12 +53,17 @@ export const RegisterPage = () => {
             hasError = true;
         } else setRepeatPasswordError("");
 
+        if (!isAtLeast16) {
+            setAgeError("Подтвердите, что вам есть 16 лет");
+            hasError = true;
+        } else setAgeError("");
+
         if (!acceptedRules) hasError = true;
 
         if (hasError) return;
 
         try {
-            await register(email, password);
+            await register(email, password, true);
             showSuccess("Регистрация прошла успешно! Пожалуйста, проверьте электронную почту для подтверждения!");
             navigate("/login");
         } catch (err: any) {
@@ -183,6 +190,20 @@ export const RegisterPage = () => {
                         </div>
                         {repeatPasswordError && <p className="text-sm text-red-500 mt-1">{repeatPasswordError}</p>}
                     </div>
+
+                    <label className="flex items-start gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={isAtLeast16}
+                            onChange={(e) => {
+                                setIsAtLeast16(e.target.checked);
+                                if (e.target.checked) setAgeError("");
+                            }}
+                            className="mt-1 accent-indigo-500 cursor-pointer"
+                        />
+                        <span>Мне есть 16 лет</span>
+                    </label>
+                    {ageError && <p className="text-sm text-red-500 -mt-2">{ageError}</p>}
 
                     {/* CHECKBOX */}
                     <label className="flex items-start gap-2 text-sm">
