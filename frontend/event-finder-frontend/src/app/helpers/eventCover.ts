@@ -14,6 +14,23 @@ const COVER_FILES: Record<string, string> = {
     "Другое": "other.svg",
 };
 
+export const CATEGORY_MARKER_COLORS: Record<string, string> = {
+    "Музыка": "#7c3aed",
+    "Спорт": "#16a34a",
+    "Искусство": "#db2777",
+    "Бизнес": "#0f766e",
+    "Технологии": "#1d4ed8",
+    "Образование": "#b45309",
+    "Развлечения": "#e11d48",
+    "Еда и напитки": "#ea580c",
+    "Природа": "#166534",
+    "Другое": "#475569",
+};
+
+export function categoryMarkerColor(category?: string | null) {
+    return CATEGORY_MARKER_COLORS[category || ""] || CATEGORY_MARKER_COLORS["Другое"];
+}
+
 export function categoryCoverUrl(category?: string | null) {
     const file = COVER_FILES[category || ""] || COVER_FILES["Другое"];
     return `${import.meta.env.BASE_URL}covers/${file}`;

@@ -21,7 +21,7 @@ import { ReviewEntity } from "../entities/review.types";
 import { ProfileEntity } from "../entities/profile.types";
 import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
 import {SERVER_URL} from "../config/serverConfig";
-import { useEventCover } from "../helpers/eventCover";
+import { useEventCover, categoryMarkerColor } from "../helpers/eventCover";
 import { mediaUrl } from "../helpers/mediaUrl";
 
 function isPastEvent(event: { date: string; time?: string }) {
@@ -359,7 +359,8 @@ export function EventDetailPage() {
                           <Placemark
                               geometry={event.coordinates}
                               options={{
-                                preset: 'islands#redDotIcon',
+                                preset: "islands#circleDotIcon",
+                                iconColor: categoryMarkerColor(event.category),
                               }}
                           />
                       )}

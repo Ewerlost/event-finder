@@ -29,6 +29,8 @@ logs
 
 # testing
 /coverage
+__pycache__/
+*.pyc
 
 # optional npm cache
 .npm

@@ -12,6 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import { eventsService } from "../services/eventsService";
 import { EventEntity } from "../entities/event.types";
 import { EVENT_CATEGORIES } from "../constants/defaultConstants";
+import { categoryMarkerColor } from "../helpers/eventCover";
 import { showError } from "../helpers/toastUtils";
 
 const MINSK: [number, number] = [53.9006, 27.559];
@@ -145,6 +146,17 @@ export function EventsMapPage() {
                             Рядом со мной
                         </Button>
                     </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4 text-sm text-muted-foreground">
+                        {EVENT_CATEGORIES.map((item) => (
+                            <span key={item} className="inline-flex items-center gap-2">
+                                <span
+                                    className="h-3 w-3 rounded-full border border-white shadow"
+                                    style={{ backgroundColor: categoryMarkerColor(item) }}
+                                />
+                                {item}
+                            </span>
+                        ))}
+                    </div>
 
                     {loading ? (
                         <div className="flex justify-center py-20">
@@ -173,7 +185,10 @@ export function EventsMapPage() {
                                             key={event.id}
                                             geometry={event.coordinates}
                                             properties={{ hintContent: event.title, iconCaption: event.title }}
-                                            options={{ preset: "islands#redDotIcon" }}
+                                            options={{
+                                                preset: "islands#circleDotIcon",
+                                                iconColor: categoryMarkerColor(event.category),
+                                            }}
                                             onClick={() => navigate(`/events/${event.id}`)}
                                         />
                                     ))}
