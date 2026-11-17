@@ -18,7 +18,9 @@ export const RegisterPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedRules, setAcceptedRules] = useState(false);
     const [isAtLeast16, setIsAtLeast16] = useState(false);
+    const [personalDataConsent, setPersonalDataConsent] = useState(false);
     const [ageError, setAgeError] = useState("");
+    const [consentError, setConsentError] = useState("");
 
     // password checks
     const hasLength = password.length >= 8 && password.length <= 40;
@@ -30,7 +32,7 @@ export const RegisterPage = () => {
     const emailValid = isEmailValid(email);
     const passwordsMatch = password !== "" && repeatPassword !== "" && password === repeatPassword;
 
-    const formValid = emailValid && passwordValid && passwordsMatch && acceptedRules && isAtLeast16;
+    const formValid = emailValid && passwordValid && passwordsMatch && acceptedRules && isAtLeast16 && personalDataConsent;
 
     const onSubmitClick = async () => {
         let hasError = false;
@@ -58,12 +60,17 @@ export const RegisterPage = () => {
             hasError = true;
         } else setAgeError("");
 
+        if (!personalDataConsent) {
+            setConsentError("Без согласия на обработку персональных данных регистрация невозможна");
+            hasError = true;
+        } else setConsentError("");
+
         if (!acceptedRules) hasError = true;
 
         if (hasError) return;
 
         try {
-            await register(email, password, true);
+            await register(email, password, true, true);
             showSuccess("Регистрация прошла успешно! Пожалуйста, проверьте электронную почту для подтверждения!");
             navigate("/login");
         } catch (err: any) {
@@ -104,8 +111,8 @@ export const RegisterPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-            <div className="w-[420px] bg-white rounded-xl shadow-md p-6">
+        <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+            <div className="w-full max-w-[520px] bg-white rounded-xl shadow-md p-6">
                 <h2 className="text-xl font-medium text-center mb-4 text-[var(--primary-text-color)]">
                     Регистрация
                 </h2>
@@ -204,6 +211,39 @@ export const RegisterPage = () => {
                         <span>Мне есть 16 лет</span>
                     </label>
                     {ageError && <p className="text-sm text-red-500 -mt-2">{ageError}</p>}
+
+                    <div className="rounded-md border border-gray-200 p-3 text-sm text-[var(--primary-text-color)] space-y-2">
+                        <p className="font-medium">Обработка персональных данных</p>
+                        <p>
+                            Сервис EventFinder (Республика Беларусь, г. Минск) обрабатывает данные, чтобы создать аккаунт,
+                            показывать мероприятия, карту, рекомендации, чат и уведомления.
+                        </p>
+                        <p>
+                            Состав: email, пароль в виде хеша, имя, телефон и текст «о себе», если вы их укажете, фото,
+                            координаты и адрес, если сохраните место в профиле, интересы, записи, отзывы и сообщения чата.
+                            Геолокация в режиме «Рядом со мной» считается на вашем устройстве и не сохраняется как адрес,
+                            пока вы сами не запишете точку в профиле. Для письма подтверждения и сброса пароля email
+                            может быть передан почтовому сервису.
+                        </p>
+                        <p>
+                            Срок — до удаления аккаунта или отзыва согласия. Отзыв: удалить аккаунт в профиле. Без согласия
+                            зарегистрироваться нельзя. Можно узнать свои данные, исправить их, потребовать удаления и
+                            обратиться в Национальный центр защиты персональных данных.
+                        </p>
+                    </div>
+                    <label className="flex items-start gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={personalDataConsent}
+                            onChange={(e) => {
+                                setPersonalDataConsent(e.target.checked);
+                                if (e.target.checked) setConsentError("");
+                            }}
+                            className="mt-1 accent-indigo-500 cursor-pointer"
+                        />
+                        <span>Даю согласие на обработку персональных данных</span>
+                    </label>
+                    {consentError && <p className="text-sm text-red-500 -mt-2">{consentError}</p>}
 
                     {/* CHECKBOX */}
                     <label className="flex items-start gap-2 text-sm">

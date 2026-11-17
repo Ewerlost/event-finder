@@ -53,14 +53,23 @@ def _find_token(db: Session, raw_token: str, token_type: str) -> EmailToken | No
 @router.post("/register")
 def register(body: RegisterRequest, db: Session = Depends(get_db)) -> Response:
     email = _normalize_email(body.email)
-    if not body.is_at_least_16 or not _EMAIL_RE.match(email) or len(body.password) < 6:
+    if (
+        not body.is_at_least_16
+        or not body.personal_data_consent
+        or not _EMAIL_RE.match(email)
+        or len(body.password) < 6
+    ):
         return Response(status_code=400)
 
     existing = db.scalar(select(Account).where(Account.email == email))
     if existing is not None:
         return Response(status_code=409)
 
-    account = Account(email=email, password_hash=hash_password(body.password))
+    account = Account(
+        email=email,
+        password_hash=hash_password(body.password),
+        personal_data_consent_at=utcnow(),
+    )
     raw_token = new_raw_token()
     token = EmailToken(
         account=account,

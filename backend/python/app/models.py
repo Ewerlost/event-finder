@@ -52,6 +52,7 @@ class Account(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    personal_data_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("profiles.id", ondelete="SET NULL"), unique=True, nullable=True
     )

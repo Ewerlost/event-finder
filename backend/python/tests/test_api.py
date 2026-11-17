@@ -7,9 +7,20 @@ def test_register_login_and_password_reset(client: TestClient):
 
     too_young = client.post(
         "/api/v1.0/auth/register",
-        json={"email": "young@example.com", "password": "Password1!", "isAtLeast16": False},
+        json={
+            "email": "young@example.com",
+            "password": "Password1!",
+            "isAtLeast16": False,
+            "personalDataConsent": True,
+        },
     )
     assert too_young.status_code == 400
+
+    no_consent = client.post(
+        "/api/v1.0/auth/register",
+        json={"email": "noconsent@example.com", "password": "Password1!", "isAtLeast16": True},
+    )
+    assert no_consent.status_code == 400
 
     me = client.get(f"/api/v1.0/users/{profile_id}", headers=_headers(token))
     assert me.status_code == 200
@@ -18,7 +29,12 @@ def test_register_login_and_password_reset(client: TestClient):
 
     duplicate = client.post(
         "/api/v1.0/auth/register",
-        json={"email": "Alex@example.com", "password": "Password1!", "isAtLeast16": True},
+        json={
+            "email": "Alex@example.com",
+            "password": "Password1!",
+            "isAtLeast16": True,
+            "personalDataConsent": True,
+        },
     )
     assert duplicate.status_code == 409
 
@@ -40,7 +56,12 @@ def test_register_login_and_password_reset(client: TestClient):
 
     pending = client.post(
         "/api/v1.0/auth/register",
-        json={"email": "pending@example.com", "password": "Password1!", "isAtLeast16": True},
+        json={
+            "email": "pending@example.com",
+            "password": "Password1!",
+            "isAtLeast16": True,
+            "personalDataConsent": True,
+        },
     )
     assert pending.status_code == 200
     forbidden = client.post(

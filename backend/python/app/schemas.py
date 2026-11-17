@@ -9,6 +9,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     is_at_least_16: Annotated[bool, Field(alias="isAtLeast16")] = False
+    personal_data_consent: Annotated[bool, Field(alias="personalDataConsent")] = False
 
 
 class LoginRequest(BaseModel):

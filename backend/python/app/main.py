@@ -16,18 +16,21 @@ logger = logging.getLogger(__name__)
 
 def _ensure_chat_columns() -> None:
     inspector = inspect(engine)
-    if not inspector.has_table("chat_messages"):
-        return
-    names = {column["name"] for column in inspector.get_columns("chat_messages")}
     statements = []
-    if "kind" not in names:
-        statements.append("ALTER TABLE chat_messages ADD COLUMN kind VARCHAR(20) DEFAULT 'text'")
-    if "image_path" not in names:
-        statements.append("ALTER TABLE chat_messages ADD COLUMN image_path VARCHAR(500)")
+    if inspector.has_table("chat_messages"):
+        names = {column["name"] for column in inspector.get_columns("chat_messages")}
+        if "kind" not in names:
+            statements.append("ALTER TABLE chat_messages ADD COLUMN kind VARCHAR(20) DEFAULT 'text'")
+        if "image_path" not in names:
+            statements.append("ALTER TABLE chat_messages ADD COLUMN image_path VARCHAR(500)")
     if inspector.has_table("events"):
         event_columns = {column["name"] for column in inspector.get_columns("events")}
         if "status" not in event_columns:
             statements.append("ALTER TABLE events ADD COLUMN status VARCHAR(20) DEFAULT 'active'")
+    if inspector.has_table("accounts"):
+        account_columns = {column["name"] for column in inspector.get_columns("accounts")}
+        if "personal_data_consent_at" not in account_columns:
+            statements.append("ALTER TABLE accounts ADD COLUMN personal_data_consent_at TIMESTAMP WITH TIME ZONE")
     if not statements:
         return
     with engine.begin() as connection:
