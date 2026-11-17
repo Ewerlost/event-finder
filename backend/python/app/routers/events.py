@@ -13,7 +13,7 @@ from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
 from app.event_status import is_cancelled, is_past
 from app.mappers import apply_event_fields, display_name
-from app.models import Event, Notification, Profile, Registration, WaitlistEntry, utcnow
+from app.models import Event, Notification, OrganizerSubscription, Profile, Registration, WaitlistEntry, utcnow
 from app.waitlist import present_events, promote_waitlist
 from app.schemas import EventBody
 
@@ -112,10 +112,28 @@ def create_event(
     if event.available_spots is None:
         event.available_spots = event.total_spots
     db.add(event)
+    db.flush()
+    _notify_subscribers(db, event, display_name(profile))
     db.commit()
     db.refresh(event)
     created = _load_event(db, event.id)
     return present_events(db, created, current.profile_id)
+
+
+def _notify_subscribers(db: Session, event: Event, organizer_name: str) -> None:
+    subscribers = db.scalars(
+        select(OrganizerSubscription.subscriber_id).where(OrganizerSubscription.organizer_id == event.organizer_id)
+    ).all()
+    for subscriber_id in subscribers:
+        if subscriber_id == event.organizer_id:
+            continue
+        db.add(
+            Notification(
+                user_id=subscriber_id,
+                event_id=event.id,
+                text=f"{organizer_name} создал мероприятие «{event.title}».",
+            )
+        )
 
 
 def _notify_participants(db: Session, event: Event, text: str, link_event: bool) -> None:

@@ -672,6 +672,43 @@ def test_past_events_stay_in_history_and_reviews_need_attendance(client: TestCli
     assert cancelled_review.status_code == 400
 
 
+def test_subscription_notifies_when_organizer_creates_event(client: TestClient):
+    owner = _register(client, "follow-owner@example.com")
+    fan = _register(client, "follow-fan@example.com")
+    owner_id = _profile_id(client, owner)
+
+    self_sub = client.post(f"/api/v1.0/users/{owner_id}/subscription", headers=_headers(owner))
+    assert self_sub.status_code == 400
+
+    subscribed = client.post(f"/api/v1.0/users/{owner_id}/subscription", headers=_headers(fan))
+    assert subscribed.status_code == 201
+    assert subscribed.json()["subscribed"] is True
+
+    created = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Новая встреча"),
+        headers=_headers(owner),
+    )
+    assert created.status_code == 201
+    event_id = created.json()["id"]
+
+    fan_notes = client.get("/api/v1.0/notifications", headers=_headers(fan))
+    assert any(item["eventId"] == event_id and "Новая встреча" in item["text"] for item in fan_notes.json())
+    owner_notes = client.get("/api/v1.0/notifications", headers=_headers(owner))
+    assert all(item["eventId"] != event_id for item in owner_notes.json())
+
+    removed = client.delete(f"/api/v1.0/users/{owner_id}/subscription", headers=_headers(fan))
+    assert removed.status_code == 204
+    second = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Без подписки"),
+        headers=_headers(owner),
+    )
+    second_id = second.json()["id"]
+    later = client.get("/api/v1.0/notifications", headers=_headers(fan))
+    assert all(item["eventId"] != second_id for item in later.json())
+
+
 def _headers(token: str) -> dict:
     from tests.conftest import _auth
 

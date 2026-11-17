@@ -37,6 +37,8 @@ export function UserPage() {
     const [comment, setComment] = useState("");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [subscribed, setSubscribed] = useState(false);
+    const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
     const load = async () => {
         if (!token || !id) return;
@@ -51,6 +53,10 @@ export function UserPage() {
             setProfile(nextProfile);
             setEvents(nextEvents);
             setReviews(reviewResponse.ok ? await reviewResponse.json() : []);
+            const subscriptionResponse = await fetch(`${SERVER_URL}/api/v1.0/users/${id}/subscription`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setSubscribed(subscriptionResponse.ok ? Boolean((await subscriptionResponse.json()).subscribed) : false);
             setError(null);
         } catch {
             setError("Профиль не найден");
@@ -60,6 +66,25 @@ export function UserPage() {
     useEffect(() => {
         load();
     }, [token, id]);
+
+    const toggleSubscription = async () => {
+        if (!token || !id || isSelf) return;
+        setSubscriptionSaving(true);
+        try {
+            const response = await fetch(`${SERVER_URL}/api/v1.0/users/${id}/subscription`, {
+                method: subscribed ? "DELETE" : "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) {
+                showError("Не удалось изменить подписку");
+                return;
+            }
+            setSubscribed(!subscribed);
+            showSuccess(subscribed ? "Вы отписались от организатора" : "Вы будете получать уведомления о новых мероприятиях");
+        } finally {
+            setSubscriptionSaving(false);
+        }
+    };
 
     const alreadyReviewed = reviews.some((review) => review.userId === userId);
     const isOrganizer = events.length > 0;
@@ -134,6 +159,17 @@ export function UserPage() {
                                     {isSelf && (
                                         <Button asChild variant="outline" className="mt-3">
                                             <Link to="/profile">Редактировать профиль</Link>
+                                        </Button>
+                                    )}
+                                    {!isSelf && (
+                                        <Button
+                                            variant={subscribed ? "outline" : "default"}
+                                            className="mt-3"
+                                            onClick={toggleSubscription}
+                                            disabled={subscriptionSaving}
+                                            style={subscribed ? undefined : { backgroundColor: "var(--primary-color)" }}
+                                        >
+                                            {subscribed ? "Вы подписаны" : "Подписаться"}
                                         </Button>
                                     )}
                                 </div>

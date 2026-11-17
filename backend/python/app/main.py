@@ -8,7 +8,7 @@ from sqlalchemy import inspect, text
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.models import Account, ChatMember, ChatMessage, EmailToken, Event, Notification, OrganizerReview, Profile, Registration, Review, UserInterest, WaitlistEntry  # noqa: F401
+from app.models import Account, ChatMember, ChatMessage, EmailToken, Event, Notification, OrganizerReview, OrganizerSubscription, Profile, Registration, Review, UserInterest, WaitlistEntry  # noqa: F401
 from app.routers import auth, chat, events, notifications, organizer_reviews, recommendations, reviews, users
 
 logger = logging.getLogger(__name__)

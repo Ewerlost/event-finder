@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.deps import CurrentUser, get_current_user, parse_id
 from app.mappers import apply_profile, profile_to_dict
-from app.models import Account, Profile
+from app.models import Account, OrganizerSubscription, Profile, utcnow
 from app.schemas import DeleteUserRequest, ProfileBody
 from app.security import verify_password
 
@@ -167,6 +167,52 @@ def get_avatar(user_id: str, db: Session = Depends(get_db)) -> FileResponse:
         raise HTTPException(status_code=404)
     media_type = _CONTENT_TYPES.get(path.suffix.lower(), "application/octet-stream")
     return FileResponse(path, media_type=media_type)
+
+
+def _subscription(db: Session, subscriber_id: str, organizer_id: str) -> OrganizerSubscription | None:
+    return db.get(OrganizerSubscription, {"subscriber_id": subscriber_id, "organizer_id": organizer_id})
+
+
+@router.get("/{user_id}/subscription")
+def get_subscription(
+    user_id: str,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    organizer_id = parse_id(user_id)
+    if db.get(Profile, organizer_id) is None:
+        raise HTTPException(status_code=404)
+    return {"subscribed": _subscription(db, current.profile_id, organizer_id) is not None}
+
+
+@router.post("/{user_id}/subscription", status_code=201)
+def subscribe(
+    user_id: str,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    organizer_id = parse_id(user_id)
+    if organizer_id == current.profile_id:
+        raise HTTPException(status_code=400)
+    if db.get(Profile, organizer_id) is None:
+        raise HTTPException(status_code=404)
+    if _subscription(db, current.profile_id, organizer_id) is None:
+        db.add(OrganizerSubscription(subscriber_id=current.profile_id, organizer_id=organizer_id, created_at=utcnow()))
+        db.commit()
+    return {"subscribed": True}
+
+
+@router.delete("/{user_id}/subscription", status_code=204)
+def unsubscribe(
+    user_id: str,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    row = _subscription(db, current.profile_id, parse_id(user_id))
+    if row is not None:
+        db.delete(row)
+        db.commit()
+    return Response(status_code=204)
 
 
 @router.delete("/{user_id}", status_code=204)

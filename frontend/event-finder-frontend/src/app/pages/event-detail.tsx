@@ -43,6 +43,7 @@ export function EventDetailPage() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
   const [chatAccess, setChatAccess] = useState<"full" | "history" | "none">("none");
+  const [organizerSubscribed, setOrganizerSubscribed] = useState(false);
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
@@ -95,6 +96,15 @@ export function EventDetailPage() {
 
       const eventReviews = await reviewsService.getEventReviews(id, token);
       setReviews(eventReviews);
+
+      if (eventData.organizerId && eventData.organizerId !== userId) {
+        const subscriptionResponse = await fetch(`${SERVER_URL}/api/v1.0/users/${eventData.organizerId}/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setOrganizerSubscribed(subscriptionResponse.ok ? Boolean((await subscriptionResponse.json()).subscribed) : false);
+      } else {
+        setOrganizerSubscribed(false);
+      }
 
       const chatResponse = await fetch(`${SERVER_URL}/api/v1.0/events/${id}/chat`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -604,6 +614,30 @@ export function EventDetailPage() {
                       </div>
                     </div>
                   </Link>
+                  {event.organizerId !== userId && (
+                      <Button
+                          variant={organizerSubscribed ? "outline" : "default"}
+                          className="w-full mt-3"
+                          style={organizerSubscribed ? undefined : { backgroundColor: "var(--primary-color)" }}
+                          onClick={async () => {
+                            if (!token || !event.organizerId) return;
+                            const response = await fetch(`${SERVER_URL}/api/v1.0/users/${event.organizerId}/subscription`, {
+                              method: organizerSubscribed ? "DELETE" : "POST",
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            if (!response.ok) {
+                              showError("Не удалось изменить подписку");
+                              return;
+                            }
+                            setOrganizerSubscribed(!organizerSubscribed);
+                            showSuccess(organizerSubscribed
+                                ? "Вы отписались от организатора"
+                                : "Вы будете получать уведомления о новых мероприятиях");
+                          }}
+                      >
+                        {organizerSubscribed ? "Вы подписаны" : "Подписаться на организатора"}
+                      </Button>
+                  )}
                 </div>
               </div>
             </div>
