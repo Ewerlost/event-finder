@@ -709,6 +709,27 @@ def test_subscription_notifies_when_organizer_creates_event(client: TestClient):
     assert all(item["eventId"] != second_id for item in later.json())
 
 
+def test_chat_replaces_profanity(client: TestClient):
+    from app.profanity import censor_text
+
+    assert censor_text("привет блять всем") == "привет *** всем"
+    assert censor_text("у корабля") == "у корабля"
+    assert censor_text("х у й") == "***"
+    assert censor_text("мандарин") == "мандарин"
+
+    owner = _register(client, "censor-owner@example.com")
+    guest = _register(client, "censor-guest@example.com")
+    created = client.post("/api/v1.0/events", json=_event(), headers=_headers(owner))
+    event_id = created.json()["id"]
+    client.post(f"/api/v1.0/events/{event_id}/register", headers=_headers(guest))
+
+    with client.websocket_connect(f"/api/v1.0/events/{event_id}/chat/ws?token={guest}") as socket:
+        socket.receive_json()
+        socket.send_json({"text": "ну блять"})
+        saved = socket.receive_json()["message"]
+        assert saved["text"] == "ну ***"
+
+
 def _headers(token: str) -> dict:
     from tests.conftest import _auth
 

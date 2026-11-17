@@ -16,6 +16,7 @@ from app.database import SessionLocal, get_db
 from app.deps import CurrentUser, get_current_user, parse_id
 from app.mappers import display_name
 from app.models import Account, ChatMessage, Event, Profile
+from app.profanity import censor_text
 from app.security import decode_access_token
 
 router = APIRouter(prefix="/api/v1.0", tags=["chat"])
@@ -234,6 +235,10 @@ async def chat_socket(websocket: WebSocket, event_id: str, token: str = Query(..
                 continue
             if len(text) > 2000:
                 await websocket.send_json({"type": "error", "message": "Слишком длинное сообщение"})
+                continue
+            text = censor_text(text).strip()
+            if not text:
+                await websocket.send_json({"type": "error", "message": "Пустое сообщение"})
                 continue
             db.expire_all()
             event = db.get(Event, event_id)
