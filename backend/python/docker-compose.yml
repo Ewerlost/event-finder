@@ -26,10 +26,15 @@ services:
       JWT_KEY: dev_only_change_me_please_use_a_long_secret_key
       JWT_ISSUER: EventFinder.Api
       JWT_AUDIENCE: EventFinder.Client
-      FRONTEND_URL: http://localhost:5173/#
+      FRONTEND_URL: ${FRONTEND_URL:-http://127.0.0.1:5173/event-finder/#}
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,https://alexthunder2005.github.io
       MAILERSEND_API_TOKEN: ${MAILERSEND_API_TOKEN:-}
       MAILERSEND_FROM_EMAIL: ${MAILERSEND_FROM_EMAIL:-}
       MAILERSEND_FROM_NAME: ${MAILERSEND_FROM_NAME:-EventFinderTeam}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-EventFinder}
     ports:
       - "8080:8080"

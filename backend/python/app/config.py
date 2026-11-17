@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     mailersend_api_token: str = ""
     mailersend_from_email: str = ""
     mailersend_from_name: str = "EventFinderTeam"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "EventFinder"
     upload_dir: str = "wwwroot"
     recommendation_model_url: str = ""
 
