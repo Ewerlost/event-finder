@@ -4,7 +4,6 @@ import { ToastContainer } from "react-toastify";
 // import "react-toastify/dist/ReactToastify.css";
 import { HomePage } from "./pages/home";
 import { EventDetailPage } from "./pages/event-detail";
-import { OrganizerPage } from "./pages/organizer";
 import { ProfilePage } from "./pages/profile";
 import { LoginPage } from "./pages/login";
 import { RegisterPage } from "./pages/register";
@@ -40,7 +39,7 @@ export default function App() {
                         <Route path="/events/:id" element={<EventDetailPage />} />
                         <Route path="/events/:id/chat" element={<EventChatPage />} />
                         <Route path="/users/:id" element={<UserPage />} />
-                        <Route path="/organizers/:id" element={<OrganizerPage />} />
+                        <Route path="/organizers/:id" element={<UserPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/reset-password" element={<ResetPasswordPage />} />
                         <Route path="*" element={<NotFoundPage />} />

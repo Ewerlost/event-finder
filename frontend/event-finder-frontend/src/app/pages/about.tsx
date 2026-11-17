@@ -46,7 +46,8 @@ const faqs = [
   },
   {
     question: "Где оставить отзыв?",
-    answer: "На странице мероприятия, когда вы вошли в аккаунт. Отзыв виден на карточке организатора.",
+    answer:
+      "Отзыв о мероприятии оставляют на его странице после начала, если вы были записаны и встречу не отменили. Отзыв об организаторе можно оставить в любой момент на его профиле, если он проводил хотя бы одну встречу.",
   },
 ];
 
@@ -59,9 +60,9 @@ export function AboutPage() {
       <main className="flex-1">
         <section className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white py-16 md:py-24">
           <div className="container mx-auto px-4 max-w-3xl text-center">
-            <h1 className="text-4xl md:text-5xl mb-4">EventHub</h1>
+            <h1 className="text-4xl md:text-5xl mb-4">EventFinder</h1>
             <p className="text-lg md:text-xl opacity-90">
-              Сервис, где можно найти мероприятие в своём городе или собрать своё: от камерного вечера до открытой встречи.
+              Сервис, где один аккаунт и находит встречу, и собирает свою: от камерного вечера до открытой встречи.
             </p>
           </div>
         </section>
@@ -75,7 +76,7 @@ export function AboutPage() {
               <ul className="space-y-2 text-muted-foreground">
                 <li className="flex gap-2"><MapPin className="h-4 w-4 mt-1 shrink-0" /> Лента с фильтром по городу и категории</li>
                 <li className="flex gap-2"><UserCheck className="h-4 w-4 mt-1 shrink-0" /> Запись на событие и отмена, если планы изменились</li>
-                <li>Карточка организатора, его события и отзывы других людей</li>
+                <li>Карточка человека, его мероприятия и отзывы о нём как об организаторе</li>
               </ul>
             </article>
             <article className="rounded-xl border bg-card p-6">
@@ -107,7 +108,7 @@ export function AboutPage() {
                 <Link to="/">К мероприятиям</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link to="/profile">Стать организатором</Link>
+                <Link to="/profile">Создать мероприятие</Link>
               </Button>
             </div>
           </div>

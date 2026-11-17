@@ -19,10 +19,10 @@ import { profileService } from "../services/profileServise";
 import { EventEntity } from "../entities/event.types";
 import { ReviewEntity } from "../entities/review.types";
 import { ProfileEntity } from "../entities/profile.types";
-import { DEFAULT_EVENT_IMAGE } from "../constants/defaultConstants";
 import { showSuccess, showError, showInfo } from "../helpers/toastUtils";
 import {SERVER_URL} from "../config/serverConfig";
-import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
+import { useEventCover } from "../helpers/eventCover";
+import { mediaUrl } from "../helpers/mediaUrl";
 
 function isPastEvent(event: { date: string; time?: string }) {
   const stamp = new Date(`${event.date}T${event.time || "23:59"}:00Z`).getTime();
@@ -51,6 +51,7 @@ export function EventDetailPage() {
   const [userProfile, setUserProfile] = useState<ProfileEntity | null>(null);
 
   const ymaps = useYMaps(["geocode"]);
+  const cover = useEventCover(event ?? { category: "Другое" });
 
   useEffect(() => {
     if (token && id) {
@@ -330,7 +331,8 @@ export function EventDetailPage() {
               <div className="lg:col-span-2 space-y-8">
                 <div className="rounded-lg overflow-hidden">
                   <img
-                      src={getEventCardImageUrl(event.id as string) || DEFAULT_EVENT_IMAGE}
+                      src={cover.src}
+                      onError={cover.onError}
                       alt={event.title}
                       className="w-full h-96 object-cover"
                   />
@@ -586,21 +588,21 @@ export function EventDetailPage() {
                     )}
                   </div>
 
-                  {/*<Link
-                      to={`/organizers/${event.organizerId}`}
+                  <Link
+                      to={`/users/${event.organizerId}`}
                       className="block border rounded-lg p-6 hover:shadow-lg hover:bg-gray-50 transition-all cursor-pointer"
                   >
                     <h3 className="mb-4">Организатор</h3>
                     <div className="flex items-center gap-3 mb-3">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={event.organizerAvatar} alt={event.organizerName} />
+                        <AvatarImage src={mediaUrl(event.organizerAvatar)} alt={event.organizerName} />
                         <AvatarFallback>{event.organizerName?.[0] || "О"}</AvatarFallback>
                       </Avatar>
                       <div>
                         <h4>{event.organizerName}</h4>
                       </div>
                     </div>
-                  </Link>*/}
+                  </Link>
                 </div>
               </div>
             </div>

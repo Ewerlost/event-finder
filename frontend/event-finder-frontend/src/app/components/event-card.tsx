@@ -3,9 +3,7 @@ import { Calendar, Clock, MapPin } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { EventEntity } from '../entities/event.types'
-import { DEFAULT_EVENT_IMAGE } from '../constants/defaultConstants'
-import {SERVER_URL} from "../config/serverConfig";
-import {getEventCardImageUrl} from "../helpers/getEventCardImageUrl";
+import { useEventCover } from "../helpers/eventCover";
 
 interface EventCardProps {
   event: EventEntity;
@@ -13,6 +11,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, compact = false }: EventCardProps) {
+  const cover = useEventCover(event);
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
@@ -25,7 +24,8 @@ export function EventCard({ event, compact = false }: EventCardProps) {
       >
         <div className="relative overflow-hidden aspect-[16/9]">
           <img
-              src={getEventCardImageUrl(event.id as string) || DEFAULT_EVENT_IMAGE}
+              src={cover.src}
+              onError={cover.onError}
               alt={event.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
