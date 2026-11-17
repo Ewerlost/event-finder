@@ -30,12 +30,16 @@ class InterestsBody(BaseModel):
 
 @router.get("")
 def get_recommendations(
+    lat: float | None = None,
+    lon: float | None = None,
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     profile = db.get(Profile, current.profile_id)
     origin = None
-    if profile is not None and not (profile.coordinate_x == 0 and profile.coordinate_y == 0):
+    if lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180:
+        origin = (lat, lon)
+    elif profile is not None and not (profile.coordinate_x == 0 and profile.coordinate_y == 0):
         origin = (profile.coordinate_x, profile.coordinate_y)
     return recommend_for_user(db, current.profile_id, origin)
 

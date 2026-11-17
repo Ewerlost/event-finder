@@ -44,9 +44,26 @@ $env:DATABASE_URL = "postgresql+psycopg://event_finder_user:event_finder_passwor
 $env:FRONTEND_URL = "http://127.0.0.1:5173/event-finder/#"
 $env:CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,https://alexthunder2005.github.io"
 
+$MlDir = Join-Path $Root "ml\recommender"
+$MlPython = Join-Path $MlDir ".venv\Scripts\python.exe"
+$MlWeights = Join-Path $MlDir "artifacts\ranker.pt"
+
 $api = $null
 $web = $null
+$ml = $null
 try {
+    if ((Test-Path $MlPython) -and (Test-Path $MlWeights)) {
+        $env:RECOMMENDATION_MODEL_URL = "http://127.0.0.1:8090/rank"
+        Write-Host "Запускаю модель рекомендаций на http://127.0.0.1:8090"
+        $ml = Start-Process -FilePath $MlPython `
+            -ArgumentList "-m", "uvicorn", "serve:app", "--host", "127.0.0.1", "--port", "8090" `
+            -WorkingDirectory $MlDir `
+            -PassThru `
+            -NoNewWindow
+    } else {
+        Write-Host "Модель рекомендаций не запущена: нет ml\recommender\.venv или artifacts\ranker.pt. Блок «Для вас» посчитают правила."
+    }
+
     Write-Host "Запускаю API на http://localhost:8080"
     $api = Start-Process -FilePath $Python `
         -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload" `
@@ -72,7 +89,8 @@ try {
     }
 }
 finally {
-    Write-Host "Останавливаю API и фронт..."
+    Write-Host "Останавливаю API, фронт и модель..."
     Stop-Tree $api
     Stop-Tree $web
+    Stop-Tree $ml
 }

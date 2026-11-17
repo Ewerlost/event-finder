@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+
+import httpx
 from fastapi.testclient import TestClient
 
 
@@ -391,6 +394,27 @@ def test_author_deletes_own_reviews(client: TestClient):
     assert deleted_organizer.status_code == 204
 
 
+def test_rule_rank_keeps_interest_above_popularity():
+    from app.recommendations import rule_rank
+
+    music = SimpleNamespace(
+        id="music",
+        category="Музыка",
+        date="2026-12-01",
+        coordinates=[53.9, 27.56],
+        registrations=[],
+    )
+    sport = SimpleNamespace(
+        id="sport",
+        category="Спорт",
+        date="2026-12-01",
+        coordinates=[53.9, 27.56],
+        registrations=[object()] * 30,
+    )
+    ranked = rule_rank([sport, music], {"Музыка"}, set(), (53.9, 27.56))
+    assert ranked[0] == "music"
+
+
 def test_recommendations_prefer_selected_interests(client: TestClient):
     user = _register(client, "recs@example.com")
     other = _register(client, "recs-org@example.com")
@@ -413,6 +437,93 @@ def test_recommendations_prefer_selected_interests(client: TestClient):
     body = response.json()
     assert body["source"] == "rules"
     assert body["events"][0]["category"] == "Музыка"
+
+
+def test_recommendations_prefer_a_nearby_event(client: TestClient):
+    user = _register(client, "recs-near@example.com")
+    other = _register(client, "recs-near-org@example.com")
+    headers = _headers(user)
+    assert client.put(
+        "/api/v1.0/recommendations/interests",
+        headers=headers,
+        json={"interests": ["Музыка"]},
+    ).status_code == 200
+    near = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Джаз рядом", category="Музыка", coordinates=[53.9, 27.56]),
+        headers=_headers(other),
+    )
+    far = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Джаз далеко", category="Музыка", coordinates=[55.4, 27.56]),
+        headers=_headers(other),
+    )
+    assert near.status_code == 201
+    assert far.status_code == 201
+
+    response = client.get("/api/v1.0/recommendations", headers=headers, params={"lat": 53.9, "lon": 27.56})
+    assert response.status_code == 200
+    assert response.json()["events"][0]["id"] == near.json()["id"]
+
+
+def test_recommendations_follow_model_order_and_fall_back(client: TestClient, monkeypatch):
+    user = _register(client, "recs-model@example.com")
+    other = _register(client, "recs-model-org@example.com")
+    headers = _headers(user)
+    client.put(
+        "/api/v1.0/recommendations/interests",
+        headers=headers,
+        json={"interests": ["Музыка"]},
+    )
+    music = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Джаз", category="Музыка"),
+        headers=_headers(other),
+    )
+    sport = client.post(
+        "/api/v1.0/events",
+        json=_event(title="Пробежка", category="Спорт"),
+        headers=_headers(other),
+    )
+    music_id = music.json()["id"]
+    sport_id = sport.json()["id"]
+    captured: dict = {}
+
+    class _Settings:
+        recommendation_model_url = "http://model.test/rank"
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"eventIds": [sport_id, music_id]}
+
+    def fake_post(url, json, timeout):
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.setattr("app.recommendations.get_settings", lambda: _Settings())
+    monkeypatch.setattr("app.recommendations.httpx.post", fake_post)
+
+    ranked = client.get("/api/v1.0/recommendations", headers=headers, params={"lat": 53.9, "lon": 27.56})
+    assert ranked.status_code == 200
+    assert ranked.json()["source"] == "model"
+    assert [event["id"] for event in ranked.json()["events"][:2]] == [sport_id, music_id]
+    assert captured["json"]["origin"] == [53.9, 27.56]
+    assert captured["json"]["interests"] == ["Музыка"]
+    assert "registrationCount" in captured["json"]["candidates"][0]
+
+    def failing_post(url, json, timeout):
+        raise httpx.ConnectError("model is down")
+
+    monkeypatch.setattr("app.recommendations.httpx.post", failing_post)
+    fallback = client.get("/api/v1.0/recommendations", headers=headers)
+    assert fallback.status_code == 200
+    assert fallback.json()["source"] == "rules"
+    assert fallback.json()["events"][0]["category"] == "Музыка"
 
 
 def test_waitlist_promotes_the_latest_person(client: TestClient):

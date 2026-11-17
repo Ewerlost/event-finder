@@ -1,0 +1,14 @@
+{
+  "positiveRate": 0.1012,
+  "evalUsers": 400,
+  "model": {
+    "precisionAt6": 0.5921,
+    "recallAt6": 0.9511,
+    "ndcgAt6": 0.9994
+  },
+  "rules": {
+    "precisionAt6": 0.4946,
+    "recallAt6": 0.8401,
+    "ndcgAt6": 0.8232
+  }
+}

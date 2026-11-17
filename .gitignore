@@ -1,5 +1,8 @@
 # dependencies
 /node_modules
+ml/recommender/.venv/
+**/__pycache__/
+**/.pytest_cache/
 /.pnp
 .pnp.js
 

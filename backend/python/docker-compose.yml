@@ -36,5 +36,14 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-EventFinder}
+      RECOMMENDATION_MODEL_URL: ${RECOMMENDATION_MODEL_URL:-}
     ports:
       - "8080:8080"
+
+  recommender:
+    profiles: ["ml"]
+    build:
+      context: ../../ml/recommender
+    container_name: event_finder_recommender
+    ports:
+      - "8090:8090"

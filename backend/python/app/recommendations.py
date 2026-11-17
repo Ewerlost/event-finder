@@ -1,4 +1,5 @@
 from datetime import date
+from math import log1p
 
 import httpx
 from sqlalchemy import select
@@ -30,6 +31,18 @@ def _distance_km(origin: tuple[float, float], target: list[float]) -> float | No
     return 6371 * 2 * atan2(sqrt(haversine), sqrt(1 - haversine))
 
 
+def _is_upcoming(event: Event, today: date) -> bool:
+    event_date = _parse_date(event.date)
+    return event_date is None or event_date >= today
+
+
+def _popularity_bonus(event: Event) -> float:
+    count = len(event.registrations or [])
+    if count <= 0:
+        return 0.0
+    return min(1.5, log1p(count) / log1p(30) * 1.5)
+
+
 def rule_rank(
     events: list[Event],
     interests: set[str],
@@ -53,12 +66,19 @@ def rule_rank(
             distance = _distance_km(origin, list(event.coordinates or []))
             if distance is not None and distance <= 15:
                 score += 2
+        score += _popularity_bonus(event)
         scored.append((score, event.id))
     scored.sort(key=lambda item: item[0], reverse=True)
     return [event_id for _score, event_id in scored]
 
 
-def model_rank(profile_id: str, interests: list[str], history: list[str], events: list[Event]) -> list[str] | None:
+def model_rank(
+    profile_id: str,
+    interests: list[str],
+    history: list[str],
+    events: list[Event],
+    origin: tuple[float, float] | None,
+) -> list[str] | None:
     settings = get_settings()
     if not settings.recommendation_model_url:
         return None
@@ -66,6 +86,7 @@ def model_rank(profile_id: str, interests: list[str], history: list[str], events
         "userId": profile_id,
         "interests": interests,
         "historyCategories": history,
+        "origin": [origin[0], origin[1]] if origin is not None else None,
         "candidates": [
             {
                 "id": event.id,
@@ -73,12 +94,13 @@ def model_rank(profile_id: str, interests: list[str], history: list[str], events
                 "category": event.category,
                 "date": event.date,
                 "coordinates": list(event.coordinates or []),
+                "registrationCount": len(event.registrations or []),
             }
             for event in events
         ],
     }
     try:
-        response = httpx.post(settings.recommendation_model_url, json=payload, timeout=2.0)
+        response = httpx.post(settings.recommendation_model_url, json=payload, timeout=3.0)
         response.raise_for_status()
         event_ids = response.json().get("eventIds")
     except (httpx.HTTPError, ValueError, TypeError):
@@ -86,7 +108,10 @@ def model_rank(profile_id: str, interests: list[str], history: list[str], events
     if not isinstance(event_ids, list):
         return None
     known = {event.id for event in events}
-    return [str(event_id) for event_id in event_ids if str(event_id) in known]
+    ranked = [str(event_id) for event_id in event_ids if str(event_id) in known]
+    if events and not ranked:
+        return None
+    return ranked
 
 
 def recommend_for_user(db: Session, profile_id: str, profile_coordinates: tuple[float, float] | None) -> dict:
@@ -110,11 +135,12 @@ def recommend_for_user(db: Session, profile_id: str, profile_coordinates: tuple[
             .where(Event.organizer_id != profile_id)
         ).all()
     )
+    today = date.today()
     candidates = [
         event for event in events
-        if event.id not in registered_ids and not is_cancelled(event)
+        if event.id not in registered_ids and not is_cancelled(event) and _is_upcoming(event, today)
     ]
-    ranked_ids = model_rank(profile_id, interests, sorted(history), candidates)
+    ranked_ids = model_rank(profile_id, interests, sorted(history), candidates, profile_coordinates)
     source = "model" if ranked_ids is not None else "rules"
     if ranked_ids is None:
         ranked_ids = rule_rank(candidates, set(interests), history, profile_coordinates)
